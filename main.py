@@ -3,11 +3,12 @@ import os
 import sys
 from menu import Menu
 
+from config import *
+
 # Инициализация Pygame
 pygame.init()
 
 # Установка размеров окна
-WIDTH, HEIGHT = 1920, 1080
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Project of Risk")
 
@@ -33,7 +34,7 @@ def main():
         menu.draw(screen)
         pygame.display.flip()
 
-        clock.tick(60)  # Ограничение FPS
+        clock.tick(FPS)  # Ограничение FPS
 
 if __name__ == "__main__":
     main()

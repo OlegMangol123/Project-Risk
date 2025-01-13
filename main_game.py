@@ -3,15 +3,47 @@ import os
 import math
 import random
 
+from config import *
+
+all_sprites = pygame.sprite.Group()
+bullets_group = pygame.sprite.Group()
+
+
 def load_image(path):
     try:
         return pygame.image.load(path)
     except FileNotFoundError:
         print(f"FileNotFoundError: No file '{path}'")
-        return None
+        return
+
+
+class Bullet(pygame.sprite.Sprite):
+    image = load_image(os.path.join("GAME", "ENTITY", "bullet.png"))
+
+    def __init__(self, x: int, y: int, angle: float, speed: float = 20.) -> None:
+        super().__init__(bullets_group, all_sprites)
+
+        self.image = pygame.transform.rotate(self.image, -angle) # поворот пули
+
+        self.rect = self.image.get_rect(center=(x, y))
+        self.speed = speed
+
+        angle -= 90
+        self.dx = math.cos(math.radians(angle)) * self.speed
+        self.dy = math.sin(math.radians(angle)) * self.speed
+    
+    def update(self) -> None:
+        # движение пули
+        self.rect.x += self.dx
+        self.rect.y += self.dy
+
+    def draw(self, screen: pygame.Surface) -> None:
+        # отрисовка пули
+        screen.blit(self.image, self.rect.center)
+        
 
 class Player:
-    def __init__(self, x, y, speed=5):
+    def __init__(self, x: int, y: int, speed: int = 5) -> None:
         self.image = load_image(os.path.join("GAME", "Cammando", "untitled.png"))
         self.rect = self.image.get_rect(center=(x, y))
         self.speed = speed
@@ -21,7 +53,7 @@ class Player:
                                   self.hitbox_size, self.hitbox_size)
         self.money = 100  # Начальное количество денег
 
-    def update(self, mouse_pos, walls):
+    def update(self, mouse_pos: tuple[int, int], walls: list) -> None:
         # Поворот персонажа в сторону мыши
         rel_x, rel_y = mouse_pos[0] - self.rect.centerx, mouse_pos[1] - self.rect.centery
         self.angle = (math.degrees(math.atan2(rel_y, rel_x)) + 360 + 90) % 360
@@ -47,15 +79,16 @@ class Player:
             if self.hitbox.colliderect(wall):
                 self.rect = original_rect
 
-    def draw(self, screen):
+    def draw(self, screen: pygame.Surface) -> None:
         screen.blit(self.image_rotated, self.rect.topleft)
         # Отображение денег в формате ${количество денег}
         font = pygame.font.SysFont(None, 36)
         money_text = font.render(f"${self.money}", True, (255, 255, 0))
         screen.blit(money_text, (10, 10))  # Отображение денег в левом верхнем углу
 
+
 class Chest:
-    def __init__(self, x, y, price=25):
+    def __init__(self, x: int, y: int, price: int = 25) -> None:
         self.image_normal = load_image(os.path.join("GAME", "chests", "normal", "chest.png"))
         self.image_opened = load_image(os.path.join("GAME", "chests", "normal", "chest_.png"))
         self.rect = self.image_normal.get_rect(center=(x, y))
@@ -65,7 +98,7 @@ class Chest:
         self.current_frame = 0
         self.animation_playing = False
 
-    def draw(self, screen, player):
+    def draw(self, screen: pygame.Surface, player: Player) -> None:
         if self.is_opened:
             screen.blit(self.image_opened, self.rect.topleft)
         else:
@@ -77,7 +110,7 @@ class Chest:
                 price_text = font.render(f"${self.price}", True, (255, 255, 0))
                 screen.blit(price_text, (self.rect.x + 70, self.rect.y + 40))  # Изменено положение текста
 
-    def update(self, player):
+    def update(self, player: Player) -> None:
         # Измеряем расстояние до игрока
         distance = math.sqrt((self.rect.centerx - player.rect.centerx) ** 2 + (self.rect.centery - player.rect.centery) ** 2)
 
@@ -101,8 +134,9 @@ class Chest:
             else:
                 self.animation_playing = False
 
+
 class CorruptedChest:
-    def __init__(self, x, y, price=75):
+    def __init__(self, x: int, y: int, price: int = 75) -> None:
         self.image_normal = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest.png"))
         self.image_opened = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest_.png"))
         self.rect = self.image_normal.get_rect(center=(x, y))
@@ -127,7 +161,7 @@ class CorruptedChest:
         self.glitch_probability = 0.01  # Вероятность активации глича (1%)
         self.glitch_distance_threshold = 150  # Максимальное расстояние для активации глича
 
-    def draw(self, screen, player):
+    def draw(self, screen: pygame.Surface, player: Player) -> None:
         if self.is_opened:
             screen.blit(self.image_opened, self.rect.topleft)
         elif self.glitch_animation_active:
@@ -144,7 +178,7 @@ class CorruptedChest:
                 price_text = font.render(f"${self.price}", True, (255, 255, 0))
                 screen.blit(price_text, (self.rect.x + 70, self.rect.y + 40))  # Отображение цены только рядом с игроком
 
-    def update(self, player):
+    def update(self, player: Player) -> None:
         # Измеряем расстояние до игрока
         distance = math.sqrt((self.rect.centerx - player.rect.centerx) ** 2 + (self.rect.centery - player.rect.centery) ** 2)
 
@@ -184,16 +218,16 @@ class CorruptedChest:
                 self.glitch_animation_active = False
                 self.current_glitch_frame = 0  # Сброс текущего кадра
 
-def main_game():
+
+def main_game() -> None:
     pygame.init()
-    screen_width, screen_height = 1920, 1080
-    screen = pygame.display.set_mode((screen_width, screen_height))
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
 
     floor_image = load_image(os.path.join("GAME", "blocks", "0.png"))
     wall_image = load_image(os.path.join("GAME", "blocks", "1.png"))
 
-    interface_image = pygame.Surface((screen_width, 120))
+    interface_image = pygame.Surface((WIDTH, 120))
     interface_image.fill((0, 0, 0))
 
     walls = []
@@ -215,19 +249,23 @@ def main_game():
                 wall_rect = pygame.Rect(col * 120, row * 120, 120, 120)
                 walls.append(wall_rect)
 
-    player = Player(screen_width // 2, screen_height // 2)
-    chest = Chest(screen_width // 2, screen_height // 2 - 100)
-    corrupted_chest = CorruptedChest(screen_width // 2, screen_height // 2 + 100)
+    player = Player(WIDTH // 2, HEIGHT // 2)
+    chest = Chest(WIDTH // 2, HEIGHT // 2 - 100)
+    corrupted_chest = CorruptedChest(WIDTH // 2, HEIGHT // 2 + 100)
 
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # Левый клик
+                    bullet = Bullet(player.rect.centerx, player.rect.centery, player.angle)
 
         mouse_pos = pygame.mouse.get_pos()
         player.update(mouse_pos, walls)
         chest.update(player)
+        bullets_group.update()
         corrupted_chest.update(player)
 
         screen.fill("black")
@@ -243,9 +281,10 @@ def main_game():
         chest.draw(screen, player)  # Передаем игрока в draw
         corrupted_chest.draw(screen, player)  # Передаем игрока в draw
         player.draw(screen)
+        bullets_group.draw(screen)
 
         pygame.display.flip()
-        clock.tick(60)
+        clock.tick(FPS)
 
     pygame.quit()
 

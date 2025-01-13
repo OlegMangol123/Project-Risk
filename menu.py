@@ -3,6 +3,9 @@ import os
 import sys
 from main_game import main_game  # Импортируем функцию main_game из main_game.py
 
+from config import *
+
+
 class Menu:
     def __init__(self):
         self.sprite_images = self.load_sprites()
@@ -58,7 +61,7 @@ class Menu:
 
 def main_menu():
     pygame.init()
-    screen = pygame.display.set_mode((1920, 1080))
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Main Menu")
     clock = pygame.time.Clock()
     menu = Menu()
@@ -76,7 +79,7 @@ def main_menu():
         screen.fill((0, 0, 0))  # Черный фон для меню
         menu.draw(screen)
         pygame.display.flip()
-        clock.tick(60)
+        clock.tick(FPS)
 
     pygame.quit()
     sys.exit()
