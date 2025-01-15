@@ -6,6 +6,7 @@ import random
 from config import *
 
 all_sprites = pygame.sprite.Group()
+wall_group = pygame.sprite.Group()
 bullets_group = pygame.sprite.Group()
 
 
@@ -25,7 +26,7 @@ class Bullet(pygame.sprite.Sprite):
 
         self.image = pygame.transform.rotate(self.image, -angle) # поворот пули
 
-        self.rect = self.image.get_rect(center=(x, y))
+        self.rect = self.image.get_rect(center = (x, y))
         self.speed = speed
 
         angle -= 90
@@ -40,6 +41,17 @@ class Bullet(pygame.sprite.Sprite):
     def draw(self, screen: pygame.Surface) -> None:
         # отрисовка пули
         screen.blit(self.image, self.rect.center)
+
+
+class wall(pygame.sprite.Sprite):
+    image = load_image(os.path.join("GAME", "blocks", "1"))
+
+    def __init__(self, x: int, y: int) -> None:
+        super().__init__(wall_group, all_sprites)
+        self.rect = self.image.get_rect(topleft = (x, y))
+    
+    def draw(self, screen: pygame.Surface) -> None:
+        screen.blit(self.image, self.rect.topleft)
         
 
 class Player:
@@ -219,6 +231,19 @@ class CorruptedChest:
                 self.current_glitch_frame = 0  # Сброс текущего кадра
 
 
+def get_gun_coord(player: Player, hand: bool) -> tuple[int, int]:
+    """ определение координат оружий относительно игрока """
+
+    f = 60.72890558 # длинна гипотенузы
+    angle = player.angle - 90
+    angle = math.radians(angle + 17.24 * (1 if hand else -1))
+
+    x = player.rect.centerx + math.cos(angle) * f
+    y = player.rect.centery + math.sin(angle) * f
+
+    return x, y
+
+
 def main_game() -> None:
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -253,6 +278,10 @@ def main_game() -> None:
     chest = Chest(WIDTH // 2, HEIGHT // 2 - 100)
     corrupted_chest = CorruptedChest(WIDTH // 2, HEIGHT // 2 + 100)
 
+    shooting = False
+    shooting_cooldown = 0
+    hand = False
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -260,7 +289,11 @@ def main_game() -> None:
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Левый клик
-                    bullet = Bullet(player.rect.centerx, player.rect.centery, player.angle)
+                    shooting_cooldown = 0
+                    shooting = True
+            if event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    shooting = False
 
         mouse_pos = pygame.mouse.get_pos()
         player.update(mouse_pos, walls)
@@ -284,9 +317,20 @@ def main_game() -> None:
         bullets_group.draw(screen)
 
         pygame.display.flip()
+
+        if shooting_cooldown > 150:
+            shooting_cooldown = 0
+
+        if shooting and shooting_cooldown == 0:
+            Bullet(*get_gun_coord(player, hand), player.angle)
+            hand = not hand
+        
+        shooting_cooldown += clock.get_time()
+
         clock.tick(FPS)
 
     pygame.quit()
+
 
 if __name__ == "__main__":
     main_game()
