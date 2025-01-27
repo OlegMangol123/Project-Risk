@@ -1,39 +1,44 @@
-import pygame
 import os
 import math
 import random
 
+import pygame
+from pygame import Color
+
+from components.other import load_image
+from components import items 
+
 from config import *
+#
 
 all_sprites = pygame.sprite.Group()
 bullets_group = pygame.sprite.Group()
 
 indestructible_block_type = pygame.sprite.Group() 
 impassable_block_type = pygame.sprite.Group()
+#
 
-
-def load_image(path) -> pygame.Surface | None:
-    try:
-        return pygame.image.load(path)
-    except FileNotFoundError:
-        print(f"FileNotFoundError: No file '{path}'")
-        return
+pygame.init()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
 
 
 class Bullet(pygame.sprite.Sprite):
     image = load_image(os.path.join("GAME", "ENTITY", "bullet.png"))
 
-    def __init__(self, x: int, y: int, angle: float, speed: float = 20.) -> None:
+    def __init__(self, x: int, y: int, angle: float, damage: int = 10, speed: float = 20.) -> None:
         super().__init__(bullets_group, all_sprites)
 
-        self.image = pygame.transform.rotate(self.image, -angle) # поворот пули
+        self.angle = angle
+        self.image = pygame.transform.rotate(self.image, -self.angle) # поворот пули
 
         self.rect = self.image.get_rect(center = (x, y))
         self.speed = speed
+        self.damage = damage
 
-        angle -= 90
-        self.dx = math.cos(math.radians(angle)) * self.speed
-        self.dy = math.sin(math.radians(angle)) * self.speed
+        self.angle -= 90
+        self.dx = math.cos(math.radians(self.angle)) * self.speed
+        self.dy = math.sin(math.radians(self.angle)) * self.speed
     
     def update(self) -> None:
         # движение пули
@@ -46,6 +51,31 @@ class Bullet(pygame.sprite.Sprite):
     def draw(self, screen: pygame.Surface) -> None:
         # отрисовка пули
         screen.blit(self.image, self.rect.center)
+
+
+class EnergyBullet(Bullet):
+    image = load_image(os.path.join("GAME", "ENTITY", "energy_bullet.png"))
+
+    def __init__(self, x: int, y: int, angle: float, damage: int = 20):
+        super().__init__(x, y, angle, damage = damage)
+
+        self.lives = 10
+    
+    def update(self) -> None:
+        self.rect.x += self.dx
+        self.rect.y += self.dy
+
+        if pygame.sprite.spritecollideany(self, indestructible_block_type):
+            if self.lives:
+                self.image = pygame.transform.rotate(self.image, 90)
+
+                self.angle -= 90
+                self.dx = math.cos(math.radians(self.angle)) * self.speed
+                self.dy = math.sin(math.radians(self.angle)) * self.speed
+
+                self.lives -= 1
+            else:
+                self.kill()
 
 
 class Block(pygame.sprite.Sprite):
@@ -79,6 +109,25 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, x: int, y: int, speed: float = 5.) -> None:
         super().__init__()
 
+        self.max_greade = self.grenade = 1
+
+        self.max_sprint = self.sprint = 1
+        self.sprint_angle = 0
+        self.sprint_reload_cooldown = 0
+        self.max_sprint_value = self.sprint_value = 80
+
+        self.max_bullets = self.bullets = 15
+        self.bullets_shooting = False
+        self.bullets_shooting_cooldown = 0
+        self.bullets_reload_cooldown = 0
+
+        self.max_energy_bullets = self.energy_bullets = 7
+        self.e_bullets_shooting = False
+        self.e_bullets_shooting_cooldown = 0
+        self.e_bullets_reload_cooldown = 0
+
+        self.hand = False
+
         self.rect = self.image.get_rect(center=(x, y))
         self.speed = speed
         self.hitbox_size = 30
@@ -87,7 +136,12 @@ class Player(pygame.sprite.Sprite):
                                   self.hitbox_size, self.hitbox_size)
         self.money = 100  # Начальное количество денег
 
+        self.max_items = 9
+        self.items = {}
+
         self.image_rotated = self.image
+
+        self.max_hp = self.hp = 100
 
     def update(self, mouse_pos: tuple[int, int]) -> None:
         # Поворот персонажа в сторону мыши
@@ -99,6 +153,20 @@ class Player(pygame.sprite.Sprite):
         # Движение игрока
         keys = pygame.key.get_pressed()
         original_rect = self.rect.copy()  # Сохраняем оригинальное положение
+
+        if (keys[pygame.K_LSHIFT] and self.sprint) or (self.sprint_value != self.max_sprint_value):
+            self.rect.x += math.sin(math.radians(self.angle)) * self.sprint_value
+            self.rect.y -= math.cos(math.radians(self.angle)) * self.sprint_value
+            self.sprint_value -= 10
+        
+            if self.sprint:
+                self.sprint -= 1
+                self.sprint_reload_cooldown = 2000
+            if self.sprint_value == 0:
+                self.sprint_value = self.max_sprint_value
+        
+        if self.sprint_reload_cooldown <= 0:
+            self.sprint = self.max_sprint
 
         if keys[pygame.K_w]:  # Вверх
             self.rect.y -= self.speed
@@ -114,16 +182,68 @@ class Player(pygame.sprite.Sprite):
         for sprite in impassable_block_type:
             if self.hitbox.colliderect(sprite.rect):
                 self.rect = original_rect
+
+        buttons = pygame.mouse.get_pressed()
+        # обычные патроны
+        if buttons[0] and not self.bullets_shooting:
+            self.bullets_shooting = True
+            self.bullets_shooting_cooldown = 0
+
+        if self.bullets_shooting_cooldown > 150:
+            self.bullets_shooting_cooldown = 0
+
+        if self.bullets_shooting and self.bullets_shooting_cooldown == 0:
+            self.bullets_reload_cooldown = 500
+            if self.bullets > 0:
+                Bullet(*get_gun_coord(self.rect.center, self.angle, self.hand), self.angle)
+                self.bullets -= 1
+                self.hand = not self.hand
+
+        if self.bullets_reload_cooldown <= 0 and self.bullets < self.max_bullets:
+            self.bullets += 1
+            self.bullets_reload_cooldown = 50
+
+        # заряженные патроны
+        if buttons[2] and not self.e_bullets_shooting:
+            self.e_bullets_shooting = True
+            self.e_bullets_shooting_cooldown = 0
+
+        if self.e_bullets_shooting_cooldown > 150:
+            self.e_bullets_shooting_cooldown = 0
+
+        if self.e_bullets_shooting and self.e_bullets_shooting_cooldown == 0:
+            self.e_bullets_reload_cooldown = 1000
+            if self.energy_bullets > 0:
+                EnergyBullet(*get_gun_coord(self.rect.center, self.angle, self.hand), self.angle)
+                self.energy_bullets -= 1
+                self.hand = not self.hand
+
+        if self.e_bullets_reload_cooldown <= 0 and self.energy_bullets < self.max_energy_bullets:
+            self.energy_bullets += 1
+            self.e_bullets_reload_cooldown = 125
+
+        time = clock.get_time()
+        self.e_bullets_shooting_cooldown += time
+        self.bullets_shooting_cooldown += time
+        self.bullets_reload_cooldown -= time
+        self.e_bullets_reload_cooldown -= time
+        self.sprint_reload_cooldown -= time
+    
+        if not buttons[0]:
+            self.bullets_shooting = False
+        if not buttons[2]:
+            self.e_bullets_shooting = False  
     
     def get_distance(self, object: pygame.sprite.Sprite) -> float:
         return math.sqrt((self.rect.centerx - object.rect.centerx) ** 2 + (self.rect.centery - object.rect.centery) ** 2)
 
     def draw(self, screen: pygame.Surface) -> None:
         screen.blit(self.image_rotated, self.rect.topleft)
-        # Отображение денег в формате ${количество денег}
-        font = pygame.font.SysFont(None, 36)
-        money_text = font.render(f"${self.money}", True, (255, 255, 0))
-        screen.blit(money_text, (10, 10))  # Отображение денег в левом верхнем углу
+    
+    def add_item(self, item: items.Item, count: int = 1) -> None:
+        if len(self.items) < self.max_items:
+            self.items.setdefault(item, 0)
+            self.items[item] += count
 
 
 class Camera:
@@ -141,11 +261,107 @@ class Camera:
         self.dy = -(target.rect.y + target.rect.h // 2 - HEIGHT // 2)
 
 
+class Interface:
+    hp_bar_background = Color(92, 172, 64)
+    hp_bar_background_none = Color(34, 56, 19)
+    hp_bar_text_color = Color(242, 249, 216)
+
+    m1_skill = load_image(os.path.join("GAME", "gui", "skills", "m1.png"))
+    off_m1_skill = m1_skill.copy()
+    off_m1_skill.set_alpha(50)
+    #
+    m2_skill = load_image(os.path.join("GAME", "gui", "skills", "m2.png"))
+    off_m2_skill = m2_skill.copy()
+    off_m2_skill.set_alpha(50)
+    #
+    shift_skill = load_image(os.path.join("GAME", "gui", "skills", "shift.png"))
+    off_shift_skill = shift_skill.copy()
+    off_shift_skill.set_alpha(50)
+    #
+    r_skill =  load_image(os.path.join("GAME", "gui", "skills", "r.png"))
+    off_r_skill = r_skill.copy()
+    off_r_skill.set_alpha(50)
+
+    def __init__(self) -> None:
+        ...
+    
+    def draw(self, screen: pygame.surface.Surface, player: Player) -> None:
+        # border
+        pygame.draw.rect(screen, "#000000", (0, 0, WIDTH, 85))
+        pygame.draw.rect(screen, "#000000", (0, HEIGHT - 100, WIDTH, 100))
+
+        self.draw_graph(screen, self.hp_bar_background_none, self.hp_bar_background, self.hp_bar_text_color,
+                        50, HEIGHT - 65, 254, 30, player.hp // player.max_hp, f"{player.hp} / {player.max_hp}")
+        
+        items = (
+            (player.bullets, player.max_bullets, 'M1', self.m1_skill, self.off_m1_skill),
+            (player.energy_bullets, player.max_energy_bullets, 'M2', self.m2_skill, self.off_m2_skill),
+            (player.sprint, player.max_sprint, 'SHIFT', self.shift_skill, self.off_shift_skill),
+            (player.grenade, player.max_greade, 'R', self.r_skill, self.off_r_skill)
+        )
+
+        self.draw_skills(screen, WIDTH - 100, HEIGHT - 90, items)
+
+        inv = list(sorted(player.items.items(), key=lambda a: a[0].name))
+        inv += [None] * (9 - len(inv))
+        self.draw_inv(screen, 240, 10, inv)
+
+        font = pygame.font.SysFont(None, 35)
+        text = font.render(f'${player.money}', True, '#FFFF00')
+        screen.blit(text, (10, 10))
+    
+    def draw_graph(self, screen: pygame.Surface,
+                   background_color: Color, graph_color: Color, text_color: Color,
+                   x: int, y: int, width: int, height: int,
+                   value: float, text: str = "") -> None:
+        pygame.draw.rect(screen, background_color, (x, y, width, height))
+        pygame.draw.rect(screen, graph_color, (x, y, int(width * value), height))
+
+        font = pygame.font.SysFont(None, int(min(width, height) * 1.3))
+        text = font.render(text, True, text_color)
+        place = text.get_rect(center=(x + width // 2, y + height // 2))
+        screen.blit(text, place)
+    
+    def draw_skills(self, screen: pygame.Surface, right_x: int, right_y: int,
+                   items: tuple[ tuple[int, int, str, pygame.Surface] ]) -> None:
+        for i, (current, _max, title, image, off_image) in enumerate(items[::-1]):
+            fill = int(64 * (1 - current / _max))
+            if fill > 0:
+                screen.blit(off_image, (right_x - 64 * i, right_y))
+            rect = pygame.Rect(0, fill, 64, 64 - fill)
+            screen.blit(image.subsurface(rect), (right_x - 64 * i, right_y + fill))
+            place = pygame.draw.rect(screen, '#FFFFFF', (right_x - 64 * i, right_y + 68, 64, 20))
+
+            font = pygame.font.SysFont(None, 25)
+            text = font.render(title, True, '#000000')
+            screen.blit(text, place.topleft)
+    
+    def draw_inv(self, screen: pygame.Surface, x: int, y: int,
+                 items: tuple[ tuple[items.Item, int] ]) -> None:
+        for i, data in enumerate(items):
+            place = pygame.draw.rect(screen, "#404974", (x + i * 60, y, 60, 60))
+
+            if not data:
+                continue
+
+            item, count = data
+            screen.blit(item.image_item, place.topleft)
+            font = pygame.font.SysFont(None, 30)
+            text = font.render(f"x{count}", True, "#FFFFFF")
+            screen.blit(text, (place.bottomright[0] - text.get_size()[0], place.bottomright[1] - text.get_size()[1]))
+
+
 class Chest(pygame.sprite.Sprite):
     image = load_image(os.path.join("GAME", "chests", "normal", "chest.png"))
     image_opened = load_image(os.path.join("GAME", "chests", "normal", "chest_.png"))
 
     animation_frames = [load_image(os.path.join("GAME", "chests", "normal", f"chest{i}.png")) for i in range(1, 6)]
+
+    chance_item = (
+        (0, 80),
+        (1, 19),
+        (3, 1)
+    )
 
     def __init__(self, x: int, y: int, price: int = 25) -> None:
         super().__init__()
@@ -174,6 +390,12 @@ class Chest(pygame.sprite.Sprite):
                     self.is_opened = True
                     self.current_frame += 1
 
+                    random_item = items.get_random(random.choices(tuple(map(lambda a: a[0], self.chance_item)),
+                                                                  tuple(map(lambda b: b[1], self.chance_item)))[0])
+                    
+                    player.add_item(random_item)
+
+
         # Обработка анимации
         if self.current_frame > 0:
             if self.current_frame < len(self.animation_frames):
@@ -189,35 +411,34 @@ class CorruptedChest(Chest):
 
     animation_frames = [load_image(os.path.join("GAME", "chests", "corrupted chest", f"chest{i}.png")) for i in range(1, 6)]
 
+    chance_item = (
+        (2, 100),
+    )
+
     def __init__(self, x: int, y: int, price: int = 75) -> None:
         super().__init__(x, y, price)
 
 
-def get_gun_coord(player: Player, hand: bool) -> tuple[int, int]:
+def get_gun_coord(coords: tuple[int, int], angle: float, hand: bool) -> tuple[int, int]:
     """ определение координат оружий относительно игрока """
 
     f = 60.72890558 # длинна гипотенузы
-    angle = player.angle - 90
+    angle -= 90
     angle = math.radians(angle + 17.24 * (1 if hand else -1))
 
-    x = player.rect.centerx + math.cos(angle) * f
-    y = player.rect.centery + math.sin(angle) * f
+    x = coords[0] + math.cos(angle) * f
+    y = coords[1] + math.sin(angle) * f
 
     return x, y
 
 
 def main_game() -> None:
-    pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    clock = pygame.time.Clock()
-
-    interface_image = pygame.Surface((WIDTH, 120))
-    interface_image.fill((0, 0, 0))
+    interface = Interface()
 
     _map = [
         ['#########',
          '#.......#',
-         '#...c...#',
+         '#.ccccc.#',
          '#.......#',
          '#...@...#',
          '#.......#',
@@ -245,10 +466,6 @@ def main_game() -> None:
                 if col == 'C':
                     chests.append(CorruptedChest(coords[0] + 60, coords[1] + 40))
 
-    shooting = False
-    shooting_cooldown = 0
-    hand = False
-
     camera = Camera()
 
     running = True
@@ -256,13 +473,6 @@ def main_game() -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Левый клик
-                    shooting_cooldown = 0
-                    shooting = True
-            if event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1:
-                    shooting = False
 
         mouse_pos = pygame.mouse.get_pos()
 
@@ -274,13 +484,15 @@ def main_game() -> None:
         player.draw(screen)
         bullets_group.draw(screen)
 
+        interface.draw(screen, player)
+
+        bullets_group.update()
         player.update(mouse_pos)
         camera.update(player)
 
         all_sprites.update()
         for chest in chests:
             chest.update(player)
-        bullets_group.update()
 
         for sprite in all_sprites:
             camera.apply(sprite)
@@ -288,16 +500,7 @@ def main_game() -> None:
             camera.apply(sprite)
         camera.apply(player)
 
-        if shooting_cooldown > 150:
-            shooting_cooldown = 0
-
-        if shooting and shooting_cooldown == 0:
-            Bullet(*get_gun_coord(player, hand), player.angle)
-            hand = not hand
-
         pygame.display.flip()
-
-        shooting_cooldown += clock.get_time()
 
         clock.tick(FPS)
 
