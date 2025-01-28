@@ -134,7 +134,7 @@ class Player(pygame.sprite.Sprite):
         self.hitbox = pygame.Rect(self.rect.centerx - self.hitbox_size // 2,
                                   self.rect.centery - self.hitbox_size // 2,
                                   self.hitbox_size, self.hitbox_size)
-        self.money = 100  # Начальное количество денег
+        self.money = 500  # Начальное количество денег
 
         self.max_items = 9
         self.items = {}
