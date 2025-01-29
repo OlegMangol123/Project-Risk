@@ -15,12 +15,16 @@ all_sprites = pygame.sprite.Group()
 bullets_group = pygame.sprite.Group()
 
 indestructible_block_type = pygame.sprite.Group() 
+destructible_block_type = pygame.sprite.Group()
 impassable_block_type = pygame.sprite.Group()
 #
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
+#
+
+INV_BUTTONS = (pygame.K_1, pygame.K_2, pygame.K_3,pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9)
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -36,6 +40,8 @@ class Bullet(pygame.sprite.Sprite):
         self.speed = speed
         self.damage = damage
 
+        self.lives = 5
+
         self.angle -= 90
         self.dx = math.cos(math.radians(self.angle)) * self.speed
         self.dy = math.sin(math.radians(self.angle)) * self.speed
@@ -45,6 +51,17 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.x += self.dx
         self.rect.y += self.dy
 
+        self.check()
+
+        if (obj := pygame.sprite.spritecollideany(self, destructible_block_type)):
+            if self.lives:
+                obj.kill()
+
+                self.lives -= 1
+            else:
+                self.kill()
+
+    def check(self) -> None:
         if pygame.sprite.spritecollideany(self, indestructible_block_type):
             self.kill()
 
@@ -61,10 +78,7 @@ class EnergyBullet(Bullet):
 
         self.lives = 10
     
-    def update(self) -> None:
-        self.rect.x += self.dx
-        self.rect.y += self.dy
-
+    def check(self) -> None:
         if pygame.sprite.spritecollideany(self, indestructible_block_type):
             if self.lives:
                 self.image = pygame.transform.rotate(self.image, 90)
@@ -76,7 +90,6 @@ class EnergyBullet(Bullet):
                 self.lives -= 1
             else:
                 self.kill()
-
 
 class Block(pygame.sprite.Sprite):
     image: pygame.Surface
@@ -134,10 +147,11 @@ class Player(pygame.sprite.Sprite):
         self.hitbox = pygame.Rect(self.rect.centerx - self.hitbox_size // 2,
                                   self.rect.centery - self.hitbox_size // 2,
                                   self.hitbox_size, self.hitbox_size)
-        self.money = 100  # Начальное количество денег
+        self.money = 500  # Начальное количество денег
 
         self.max_items = 9
         self.items = {}
+        self.active_slot = 0
 
         self.image_rotated = self.image
 
@@ -176,6 +190,11 @@ class Player(pygame.sprite.Sprite):
             self.rect.x -= self.speed
         if keys[pygame.K_d]:  # Вправо
             self.rect.x += self.speed
+        
+        for i, key in enumerate(INV_BUTTONS):
+            if keys[key]:
+                self.active_slot = i
+                break
 
         # Проверка столкновений с стенами
         self.hitbox.center = self.rect.center  # Обновляем хитбокс
@@ -245,6 +264,14 @@ class Player(pygame.sprite.Sprite):
             self.items.setdefault(item, 0)
             self.items[item] += count
 
+    def use_item(self) -> None:
+        if self.active_slot < len(self.items):
+            item = list(sorted(self.items.items(), key=lambda a: a[0].name))[self.active_slot][0]
+            if self.items[item] == 1:
+                self.items.pop(item)
+            else:
+                self.items[item] -= 1
+
 
 class Camera:
     def __init__(self) -> None:
@@ -304,7 +331,7 @@ class Interface:
 
         inv = list(sorted(player.items.items(), key=lambda a: a[0].name))
         inv += [None] * (9 - len(inv))
-        self.draw_inv(screen, 240, 10, inv)
+        self.draw_inv(screen, 240, 10, inv, player.active_slot)
 
         font = pygame.font.SysFont(None, 35)
         text = font.render(f'${player.money}', True, '#FFFF00')
@@ -337,9 +364,12 @@ class Interface:
             screen.blit(text, place.topleft)
     
     def draw_inv(self, screen: pygame.Surface, x: int, y: int,
-                 items: tuple[ tuple[items.Item, int] ]) -> None:
+                 items: tuple[ tuple[items.Item, int] ], active: int) -> None:
         for i, data in enumerate(items):
             place = pygame.draw.rect(screen, "#404974", (x + i * 60, y, 60, 60))
+
+            if i == active:
+                pygame.draw.rect(screen, "#FFFFFF", (x + i * 60, y, 60, 60), 2)
 
             if not data:
                 continue
@@ -436,15 +466,20 @@ def main_game() -> None:
     interface = Interface()
 
     _map = [
-        ['#########',
-         '#.......#',
-         '#.ccccc.#',
-         '#.......#',
-         '#...@...#',
-         '#.......#',
-         '#...C...#',
-         '#.......#',
-         '#########']
+        ['#############',
+         '#...........#',
+         '#...........#',
+         '#...........#',
+         '#...........#',
+         '#.c.c.c.c.c.#',
+         '#...........#',
+         '#.....@.....#',
+         '#...........#',
+         '#...C...C...#',
+         '#...........#',
+         '#...........#',
+         '#...........#',
+         '#############']
     ]
 
     chests = []
@@ -452,7 +487,7 @@ def main_game() -> None:
     for _, room in enumerate(_map):
         for y, row in enumerate(room):
             for x, col in enumerate(row):
-                coords = 120 * x, 120 * y
+                coords = 80 * x, 80 * y
 
                 Grass(*coords)
 
@@ -460,11 +495,13 @@ def main_game() -> None:
                     Wall(*coords)
                 if col == '@':
                     player = Player(coords[0] + 60, coords[1] + 60)
+                if col == '%':
+                    Box(*coords)
                 
                 if col == 'c':
-                    chests.append(Chest(coords[0] + 60, coords[1] + 40))
+                    chests.append(Chest(coords[0] + 40, coords[1] + 20))
                 if col == 'C':
-                    chests.append(CorruptedChest(coords[0] + 60, coords[1] + 40))
+                    chests.append(CorruptedChest(coords[0] + 40, coords[1] + 20))
 
     camera = Camera()
 
@@ -473,7 +510,9 @@ def main_game() -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_f:
+                    player.use_item()
         mouse_pos = pygame.mouse.get_pos()
 
         screen.fill("black")
@@ -505,7 +544,3 @@ def main_game() -> None:
         clock.tick(FPS)
 
     pygame.quit()
-
-
-if __name__ == "__main__":
-    main_game()
