@@ -13,6 +13,7 @@ from config import *
 
 all_sprites = pygame.sprite.Group()
 bullets_group = pygame.sprite.Group()
+monsters_group = pygame.sprite.Group()
 
 indestructible_block_type = pygame.sprite.Group() 
 destructible_block_type = pygame.sprite.Group()
@@ -273,6 +274,74 @@ class Player(pygame.sprite.Sprite):
                 self.items[item] -= 1
 
 
+class Lem(pygame.sprite.Sprite):
+    idle_image = load_image(os.path.join("GAME", "enemy", "lem", "idle.png"))
+    attack_anim1 = [load_image(os.path.join("GAME", "enemy", "lem", "at1", f"{i}.png"))
+                    for i in range(1, 7)]
+    attack_anim2 = [load_image(os.path.join("GAME", "enemy", "lem", "at2", f"{i}.png"))
+                    for i in range(1, 5)]
+    
+    image_rotated = image = idle_image
+
+    def __init__(self, x: int, y: int) -> None:
+        super().__init__(monsters_group)
+        self.rect = self.image.get_rect(center=(x, y))
+        self.speed = 5
+        self.hitbox_size = 30
+        self.hitbox = pygame.Rect(0, 0, self.hitbox_size, self.hitbox_size)
+        self.hitbox.center = self.rect.center
+
+    def update(self, player: Player) -> None:
+        rel_x = player.rect.centerx - self.rect.centerx
+        rel_y = player.rect.centery - self.rect.centery
+        angle = math.degrees(math.atan2(rel_x, rel_y))
+        self.image_rotated = pygame.transform.rotate(self.image, angle)
+        self.rect = self.image_rotated.get_rect(center=self.rect.center)
+
+        if (rel_x, rel_y) == (0, 0):
+            return
+
+        direction = pygame.math.Vector2(rel_x, rel_y).normalize()
+        original_rect = self.rect.copy()
+        
+        self.rect.x += direction.x * self.speed
+        self.rect.y += direction.y * self.speed
+        self.hitbox.center = self.rect.center
+
+        collision = any(
+            self.hitbox.colliderect(block.rect) 
+            for block in impassable_block_type
+        )
+
+        if collision:
+            perp1 = pygame.math.Vector2(-direction.y, direction.x)
+            perp2 = pygame.math.Vector2(direction.y, -direction.x)
+            
+            test_rect1 = original_rect.move(perp1 * self.speed)
+            collision1 = any(
+                test_rect1.colliderect(block.rect) 
+                for block in impassable_block_type
+            )
+            
+            test_rect2 = original_rect.move(perp2 * self.speed)
+            collision2 = any(
+                test_rect2.colliderect(block.rect) 
+                for block in impassable_block_type
+            )
+
+            if not collision1:
+                self.rect = test_rect1
+            elif not collision2:
+                self.rect = test_rect2
+            else:
+                self.rect = original_rect
+
+            self.hitbox.center = self.rect.center
+
+    def draw(self, screen: pygame.Surface) -> None:
+        screen.blit(self.image_rotated, self.rect.topleft)
+
+
 class Camera:
     def __init__(self) -> None:
         self.dx = 0
@@ -305,7 +374,7 @@ class Interface:
     off_shift_skill = shift_skill.copy()
     off_shift_skill.set_alpha(50)
     #
-    r_skill =  load_image(os.path.join("GAME", "gui", "skills", "r.png"))
+    r_skill = load_image(os.path.join("GAME", "gui", "skills", "r.png"))
     off_r_skill = r_skill.copy()
     off_r_skill.set_alpha(50)
 
@@ -425,7 +494,6 @@ class Chest(pygame.sprite.Sprite):
                     
                     player.add_item(random_item)
 
-
         # Обработка анимации
         if self.current_frame > 0:
             if self.current_frame < len(self.animation_frames):
@@ -468,21 +536,22 @@ def main_game() -> None:
     _map = [
         ['#############',
          '#...........#',
-         '#...........#',
-         '#...........#',
-         '#...........#',
+         '#....#......#',
+         '#....#......#',
+         '#....#......#',
          '#.c.c.c.c.c.#',
          '#...........#',
          '#.....@.....#',
          '#...........#',
          '#...C...C...#',
          '#...........#',
-         '#...........#',
+         '#....M......#',
          '#...........#',
          '#############']
     ]
 
     chests = []
+    monsters = []
 
     for _, room in enumerate(_map):
         for y, row in enumerate(room):
@@ -495,13 +564,14 @@ def main_game() -> None:
                     Wall(*coords)
                 if col == '@':
                     player = Player(coords[0] + 60, coords[1] + 60)
-                if col == '%':
-                    Box(*coords)
                 
                 if col == 'c':
                     chests.append(Chest(coords[0] + 40, coords[1] + 20))
                 if col == 'C':
                     chests.append(CorruptedChest(coords[0] + 40, coords[1] + 20))
+                
+                if col == 'M':
+                    monsters.append(Lem(coords[0] + 60, coords[1] + 60))
 
     camera = Camera()
 
@@ -520,6 +590,8 @@ def main_game() -> None:
         all_sprites.draw(screen)
         for chest in chests:
             chest.draw(screen, player)
+        for monster in monsters:
+            monster.draw(screen)
         player.draw(screen)
         bullets_group.draw(screen)
 
@@ -530,10 +602,15 @@ def main_game() -> None:
         camera.update(player)
 
         all_sprites.update()
+
         for chest in chests:
             chest.update(player)
+        for monster in monsters:
+            monster.update(player)
 
         for sprite in all_sprites:
+            camera.apply(sprite)
+        for sprite in monsters:
             camera.apply(sprite)
         for sprite in chests:
             camera.apply(sprite)

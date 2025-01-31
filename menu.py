@@ -59,6 +59,12 @@ class Menu:
             pygame.quit()
             sys.exit()
 
+
+def terminate() -> None:
+    pygame.quit()
+    sys.exit()
+
+
 def main_menu():
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -70,7 +76,7 @@ def main_menu():
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                terminate()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Левый клик
                     menu.check_buttons(event.pos)
@@ -81,8 +87,7 @@ def main_menu():
         pygame.display.flip()
         clock.tick(FPS)
 
-    pygame.quit()
-    sys.exit()
+    main_game()
 
 if __name__ == "__main__":
     main_menu()
