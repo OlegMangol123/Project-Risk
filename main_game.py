@@ -6,6 +6,7 @@ import pygame
 from pygame import Color
 
 from components.other import load_image
+from components import game_map
 from components import items
 
 from config import *
@@ -30,7 +31,7 @@ INV_BUTTONS = (pygame.K_1, pygame.K_2, pygame.K_3,pygame.K_4, pygame.K_5, pygame
 
 
 class Bullet(pygame.sprite.Sprite):
-    image = load_image(os.path.join("GAME", "ENTITY", "bullet.png"))
+    image = load_image(os.path.join("GAME", "ENTITY", "bullet.png")).convert_alpha()
 
     def __init__(self, x: int, y: int, angle: float, damage: int = 10, speed: float = 20.) -> None:
         super().__init__(bullets_group, all_sprites)
@@ -73,7 +74,7 @@ class Bullet(pygame.sprite.Sprite):
 
 
 class EnergyBullet(Bullet):
-    image = load_image(os.path.join("GAME", "ENTITY", "energy_bullet.png"))
+    image = load_image(os.path.join("GAME", "ENTITY", "energy_bullet.png")).convert_alpha()
 
     def __init__(self, x: int, y: int, angle: float, damage: int = 20):
         super().__init__(x, y, angle, damage=damage)
@@ -86,7 +87,7 @@ class EnergyBullet(Bullet):
 
         if pygame.sprite.spritecollideany(self, indestructible_block_type):
             if self.lives:
-                self.image = pygame.transform.rotate(self.image, 90)
+                self.image = pygame.transform.rotate(self.image, 90).convert_alpha()
 
                 self.angle -= 90
                 self.dx = math.cos(math.radians(self.angle)) * self.speed
@@ -108,24 +109,24 @@ class Block(pygame.sprite.Sprite):
 
 
 class Wall(Block):
-    image = load_image(os.path.join("GAME", "blocks", "1.png"))
+    image = load_image(os.path.join("GAME", "blocks", "1.png")).convert()
 
     def __init__(self, x: int, y: int) -> None:
         super().__init__(x, y, indestructible_block_type, impassable_block_type)
 
 
 class Grass(Block):
-    image = load_image(os.path.join("GAME", "blocks", "0.png"))
+    image = load_image(os.path.join("GAME", "blocks", "0.png")).convert()
 
     def __init__(self, x: int, y: int) -> None:
         super().__init__(x, y)
 
 
 class Player(pygame.sprite.Sprite):
-    image = load_image(os.path.join("GAME", "Cammando", "untitled.png"))
-
     def __init__(self, x: int, y: int, speed: float = 5.) -> None:
         super().__init__()
+
+        self.image = load_image(os.path.join("GAME", "Cammando", "untitled.png"))
 
         self.max_greade = self.grenade = 1
 
@@ -280,10 +281,10 @@ class Player(pygame.sprite.Sprite):
 
 
 class Lem(pygame.sprite.Sprite):
-    idle_image = load_image(os.path.join("GAME", "enemy", "lem", "idle.png"))
-    attack_anim1 = [load_image(os.path.join("GAME", "enemy", "lem", "at1", f"{i}.png"))
+    idle_image = load_image(os.path.join("GAME", "enemy", "lem", "idle.png")).convert_alpha()
+    attack_anim1 = [load_image(os.path.join("GAME", "enemy", "lem", "at1", f"{i}.png")).convert_alpha()
                     for i in range(1, 7)]
-    attack_anim2 = [load_image(os.path.join("GAME", "enemy", "lem", "at2", f"{i}.png"))
+    attack_anim2 = [load_image(os.path.join("GAME", "enemy", "lem", "at2", f"{i}.png")).convert_alpha()
                     for i in range(1, 5)]
     
     image_rotated = image = idle_image
@@ -348,18 +349,18 @@ class Lem(pygame.sprite.Sprite):
 
 
 class Camera:
-    def __init__(self) -> None:
-        self.dx = 0
-        self.dy = 0
-        self.smoothness = 0.1
+    def __init__(self):
+        self.dx, self.dy = 0, 0
 
-    def apply(self, obj: pygame.sprite.Sprite) -> None:
-        obj.rect.x += self.dx
-        obj.rect.y += self.dy
+    def update(self, target):
+        dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2)
+        dy = -(target.rect.y + target.rect.h // 2 - HEIGHT // 2)
+        if abs(dx - self.dx) > 1 or abs(dy - self.dy) > 1:
+            self.dx, self.dy = dx, dy
 
-    def update(self, target: Player) -> None:
-        self.dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2)
-        self.dy = -(target.rect.y + target.rect.h // 2 - HEIGHT // 2)
+    def apply(self, sprite):
+        sprite.rect.x += self.dx
+        sprite.rect.y += self.dy
 
 
 class Interface:
@@ -367,21 +368,25 @@ class Interface:
     hp_bar_background_none = Color(34, 56, 19)
     hp_bar_text_color = Color(242, 249, 216)
 
-    m1_skill = load_image(os.path.join("GAME", "gui", "skills", "m1.png"))
+    m1_skill = load_image(os.path.join("GAME", "gui", "skills", "m1.png")).convert_alpha()
     off_m1_skill = m1_skill.copy()
     off_m1_skill.set_alpha(50)
+    off_m1_skill.convert_alpha()
     #
-    m2_skill = load_image(os.path.join("GAME", "gui", "skills", "m2.png"))
+    m2_skill = load_image(os.path.join("GAME", "gui", "skills", "m2.png")).convert_alpha()
     off_m2_skill = m2_skill.copy()
     off_m2_skill.set_alpha(50)
+    off_m2_skill.convert_alpha()
     #
-    shift_skill = load_image(os.path.join("GAME", "gui", "skills", "shift.png"))
+    shift_skill = load_image(os.path.join("GAME", "gui", "skills", "shift.png")).convert_alpha()
     off_shift_skill = shift_skill.copy()
     off_shift_skill.set_alpha(50)
+    off_shift_skill.convert_alpha()
     #
-    r_skill = load_image(os.path.join("GAME", "gui", "skills", "r.png"))
+    r_skill = load_image(os.path.join("GAME", "gui", "skills", "r.png")).convert_alpha()
     off_r_skill = r_skill.copy()
     off_r_skill.set_alpha(50)
+    off_r_skill.convert_alpha()
 
     def __init__(self) -> None:
         ...
@@ -456,10 +461,11 @@ class Interface:
 
 
 class Chest(pygame.sprite.Sprite):
-    image = load_image(os.path.join("GAME", "chests", "normal", "chest.png"))
-    image_opened = load_image(os.path.join("GAME", "chests", "normal", "chest_.png"))
+    image = load_image(os.path.join("GAME", "chests", "normal", "chest.png")).convert_alpha()
+    image_opened = load_image(os.path.join("GAME", "chests", "normal", "chest_.png")).convert_alpha()
 
-    animation_frames = [load_image(os.path.join("GAME", "chests", "normal", f"chest{i}.png")) for i in range(1, 6)]
+    animation_frames = [load_image(os.path.join("GAME", "chests", "normal", f"chest{i}.png")).convert_alpha()
+                        for i in range(1, 6)]
 
     chance_item = (
         (0, 80),
@@ -509,11 +515,11 @@ class Chest(pygame.sprite.Sprite):
 
 
 class CorruptedChest(Chest):
-    image = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest.png"))
-    image_opened = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest_.png"))
+    image = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest.png")).convert_alpha()
+    image_opened = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest_.png")).convert_alpha()
 
-    animation_frames = [load_image(os.path.join("GAME", "chests", "corrupted chest", f"chest{i}.png")) for i in
-                        range(1, 6)]
+    animation_frames = [load_image(os.path.join("GAME", "chests", "corrupted chest", f"chest{i}.png")).convert_alpha()
+                        for i in range(1, 6)]
 
     chance_item = (
         (2, 100),
@@ -541,139 +547,14 @@ def main_game() -> None:
 
     chests = []
     monsters = []
-    MAP1 = [["                                        ",
-             "                                        ",
-             "                                        ",
-             "  ############      ################    ",
-             "  #..........#      #..............#    ",
-             "  #..........#      #...........c..#    ",
-             "  #..........#      #..............#    ",
-             "  #..........########..............#    ",
-             "  #....@...........................#    ",
-             "  #....................c...........#    ",
-             "  #..........########..............#    ",
-             "  #.c........#      #..............#    ",
-             "  #..........#      #####..#########    ",
-             "  #..........#          #..#            ",
-             "  #..........#  #########..##           ",
-             "  #........c.#  #...........#  #######  ",
-             "  #..........#  #.c.........#  #.....#  ",
-             "  #..........#  #...........####.c...#  ",
-             "  ####..######  #....................#  ",
-             "     #..#       #.........c.####.....#  ",
-             "     #..#       #...........#  #.....#  ",
-             "     #..#       ###...#######  #.....#  ",
-             "  ####..#####     #...#        #.....#  ",
-             "  #.........#  ####...######   #...с.#  ",
-             "  #.........#  #..........C#   #.....#  ",
-             "  #......c..#  #...........#   ##.####  ",
-             "  #.........#  #####..######    #.#     ",
-             "  #.........#      #..#         #.#     ",
-             "  #.........#    ###..###########.##    ",
-             "  #.........#    #.................#    ",
-             "  #.........#    #.................#    ",
-             "  #..c......######.............c...#    ",
-             "  #................................#    ",
-             "  #.........######.................#    ",
-             "  ###########    #.................#    ",
-             "                 #...c.............#    ",
-             "                 ###################    ",
-             "                                        ",
-             "                                        ",
-             "                                        "]]
 
-    MAP2 = [["                                        ",
-             "                                        ",
-             "                                        ",
-             "                                        ",
-             "  ######                                ",
-             "  #....#                                ",
-             "  #.@..#                                ",
-             "  #....#                                ",
-             "  #....#       ####################     ",
-             "  #....#       #..................#     ",
-             "  #.c..#########..................#     ",
-             "  #...............................#     ",
-             "  #....#########..................#     ",
-             "  ##..##       #..................#     ",
-             "   #..#        #..c....c..........#     ",
-             "   #..#        #..................#     ",
-             "   #..#        #..................#     ",
-             "   #..#        #..................#     ",
-             "   #..#        #..................#     ",
-             "####..##       #####......#########     ",
-             "#......#           #......#             ",
-             "#......#           #......#             ",
-             "#......#    ########......###           ",
-             "#....c.#    #............c..#           ",
-             "#......######.....c.........#           ",
-             "#...........................#           ",
-             "#......######...............#           ",
-             "#......#    #...............#           ",
-             "#......#    ############..###           ",
-             "#с.....#               #..#             ",
-             "########               #..#             ",
-             "                     ###..#########     ",
-             "                     #............#     ",
-             "     ##############  #............#     ",
-             "     #............####.........c..#     ",
-             "     #............................#     ",
-             "     #............####............#     ",
-             "     #...C........#  ##############     ",
-             "     #............#                     ",
-             "     ##############                     "]]
+    def draw_map(room: game_map.Room, x_room = 0, y_room = 0):
+        print(x_room, y_room)
+        global player
 
-    MAP3 = [
-        ["  ##############################        ",
-         "  #.....@......................#        ",
-         "  #......................c.....#        ",
-         "  #.............c..............#        ",
-         "  #............................#        ",
-         "  #............................#        ",
-         "  ####...##################..###        ",
-         "     #...#                #..#          ",
-         "     #...#                #..#          ",
-         "     #...#            #####..#######    ",
-         "     #...#            #............#    ",
-         "     #...#     ###### #............#    ",
-         "     #...#     #C...# #.........c..#    ",
-         "     #...#     #....###............#    ",
-         "   ###...###   #...........c.......#    ",
-         "  #.........#  #...................#    ",
-         "  #.........#  #....###............#    ",
-         " #...........# #....# ##############    ",
-         " #........c..# #....#                   ",
-         " #...c.......# #....#                   ",
-         " #...........# #....#                   ",
-         "  #.........#  #....#                   ",
-         "  #.........#  #....#                   ",
-         "   ###...###   #....#                   ",
-         "     #..##     ##.###                   ",
-         "     #..#       #.#                     ",
-         "     #..#       #.#                     ",
-         "######..##  #####.####################  ",
-         "#........#  #........................#  ",
-         "#........####....................c...#  ",
-         "#......c.............................#  ",
-         "#.c......####........................#  ",
-         "#........#  #........................#  ",
-         "#........#  #.c......................#  ",
-         "##########  #........................#  ",
-         "            #........................#  ",
-         "            #........................#  ",
-         "            #........................#  ",
-         "            ##########################  ",
-         "                                        "
-
-        ]
-    ]
-
-    selected_map = random.choice([MAP1, MAP2, MAP3])
-
-    for _, room in enumerate(selected_map):
-        for y, row in enumerate(room):
+        for y, row in enumerate(room.surface):
             for x, col in enumerate(row):
-                coords = 80 * x, 80 * y
+                coords = 80 * x + x_room * 13 * 80, 80 * y + y_room * 13 * 80
 
                 if col == '.':
                     Grass(*coords)
@@ -690,6 +571,21 @@ def main_game() -> None:
                 if col == 'C':
                     Grass(*coords)
                     chests.append(CorruptedChest(coords[0] + 60, coords[1] + 40))
+
+        for i, neighbor in enumerate(room.passages):
+            if neighbor and type(neighbor) is not bool:
+                new_x, new_y = x_room, y_room
+                if i == 0:
+                    new_y -= 1
+                if i == 1:
+                    new_x -= 1
+                if i == 2:
+                    new_y += 1
+                if i == 3:
+                    new_x += 1
+                draw_map(neighbor, new_x, new_y)
+    
+    draw_map(game_map.make_map(5))
 
     camera = Camera()
 
