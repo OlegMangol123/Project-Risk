@@ -6,20 +6,14 @@ import pygame
 from pygame import Color
 
 from components.other import load_image
+from components.groups import *
+from components import monsters
 from components import game_map
 from components import items
+from components import blocks
 
 from config import *
 
-#
-
-all_sprites = pygame.sprite.Group()
-bullets_group = pygame.sprite.Group()
-monsters_group = pygame.sprite.Group()
-
-indestructible_block_type = pygame.sprite.Group()
-destructible_block_type = pygame.sprite.Group()
-impassable_block_type = pygame.sprite.Group()
 #
 
 pygame.init()
@@ -27,11 +21,10 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 #
 
-INV_BUTTONS = (pygame.K_1, pygame.K_2, pygame.K_3,pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9)
-
 
 class Bullet(pygame.sprite.Sprite):
     image = load_image(os.path.join("GAME", "ENTITY", "bullet.png")).convert_alpha()
+    damage = 10
 
     def __init__(self, x: int, y: int, angle: float, damage: int = 10, speed: float = 20.) -> None:
         super().__init__(bullets_group, all_sprites)
@@ -54,15 +47,13 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.x += self.dx
         self.rect.y += self.dy
 
-        self.check()
-
-        if (obj := pygame.sprite.spritecollideany(self, destructible_block_type)):
-            if self.lives:
-                obj.kill()
-
-                self.lives -= 1
-            else:
+        for monster in monsters_group:
+            if monster.hitbox.colliderect(self.rect):
+                monster.hp -= self.damage
+                DamageView(self.damage, *self.rect.center)
                 self.kill()
+
+        self.check()
 
     def check(self) -> None:
         if pygame.sprite.spritecollideany(self, indestructible_block_type):
@@ -75,16 +66,14 @@ class Bullet(pygame.sprite.Sprite):
 
 class EnergyBullet(Bullet):
     image = load_image(os.path.join("GAME", "ENTITY", "energy_bullet.png")).convert_alpha()
+    damage = 15
 
     def __init__(self, x: int, y: int, angle: float, damage: int = 20):
         super().__init__(x, y, angle, damage=damage)
 
         self.lives = 10
 
-    def update(self) -> None:
-        self.rect.x += self.dx
-        self.rect.y += self.dy
-
+    def check(self) -> None:
         if pygame.sprite.spritecollideany(self, indestructible_block_type):
             if self.lives:
                 self.image = pygame.transform.rotate(self.image, 90).convert_alpha()
@@ -97,36 +86,13 @@ class EnergyBullet(Bullet):
             else:
                 self.kill()
 
-class Block(pygame.sprite.Sprite):
-    image: pygame.Surface
-
-    def __init__(self, x: int, y: int, *groups):
-        super().__init__(all_sprites, *groups)
-        self.rect = self.image.get_rect(topleft=(x, y))
-
-    def draw(self, screen: pygame.Surface):
-        screen.blit(self.image, self.rect.topleft)
-
-
-class Wall(Block):
-    image = load_image(os.path.join("GAME", "blocks", "1.png")).convert()
-
-    def __init__(self, x: int, y: int) -> None:
-        super().__init__(x, y, indestructible_block_type, impassable_block_type)
-
-
-class Grass(Block):
-    image = load_image(os.path.join("GAME", "blocks", "0.png")).convert()
-
-    def __init__(self, x: int, y: int) -> None:
-        super().__init__(x, y)
-
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x: int, y: int, speed: float = 5.) -> None:
+    def __init__(self, x: int, y: int, camera, speed: float = 5.) -> None:
         super().__init__()
-
+        
         self.image = load_image(os.path.join("GAME", "Cammando", "untitled.png"))
+        self.camera = camera
 
         self.max_greade = self.grenade = 1
 
@@ -134,6 +100,7 @@ class Player(pygame.sprite.Sprite):
         self.sprint_angle = 0
         self.sprint_reload_cooldown = 0
         self.max_sprint_value = self.sprint_value = 80
+        self.sprint_angle = None
 
         self.max_bullets = self.bullets = 15
         self.bullets_shooting = False
@@ -149,7 +116,7 @@ class Player(pygame.sprite.Sprite):
 
         self.rect = self.image.get_rect(center=(x, y))
         self.speed = speed
-        self.hitbox_size = 30
+        self.hitbox_size = 16
         self.hitbox = pygame.Rect(self.rect.centerx - self.hitbox_size // 2,
                                   self.rect.centery - self.hitbox_size // 2,
                                   self.hitbox_size, self.hitbox_size)
@@ -163,6 +130,8 @@ class Player(pygame.sprite.Sprite):
 
         self.max_hp = self.hp = 100
 
+        self.doors = False
+
     def update(self, mouse_pos: tuple[int, int]) -> None:
         # Поворот персонажа в сторону мыши
         rel_x, rel_y = mouse_pos[0] - self.rect.centerx, mouse_pos[1] - self.rect.centery
@@ -175,12 +144,18 @@ class Player(pygame.sprite.Sprite):
         original_rect = self.rect.copy()  # Сохраняем оригинальное положение
 
         if (keys[pygame.K_LSHIFT] and self.sprint) or (self.sprint_value != self.max_sprint_value):
-            self.rect.x += math.sin(math.radians(self.angle)) * self.sprint_value
-            self.rect.y -= math.cos(math.radians(self.angle)) * self.sprint_value
+            self.rect.x += math.sin(
+                math.radians(self.sprint_angle if self.sprint_angle is not None else self.angle)
+                ) * self.sprint_value
+            self.rect.y -= math.cos(
+                math.radians(self.sprint_angle if self.sprint_angle is not None else self.angle)
+                ) * self.sprint_value
             self.sprint_value -= 10
 
             if self.sprint:
                 self.sprint -= 1
+                self.sprint_angle = self.angle
+                self.camera.shake(5, 10)
                 self.sprint_reload_cooldown = 2000
             if self.sprint_value == 0:
                 self.sprint_value = self.max_sprint_value
@@ -196,23 +171,27 @@ class Player(pygame.sprite.Sprite):
             self.rect.x -= self.speed
         if keys[pygame.K_d]:  # Вправо
             self.rect.x += self.speed
-        
-        for i, key in enumerate(INV_BUTTONS):
-            if keys[key]:
-                self.active_slot = i
-                break
 
         # Проверка столкновений с стенами
         self.hitbox.center = self.rect.center  # Обновляем хитбокс
+
+        if self.doors:
+            for sprite in doors_group:
+                if self.hitbox.colliderect(sprite.rect):
+                    self.rect = original_rect
         for sprite in impassable_block_type:
+        # and (doors_group if False else none_group):
             if self.hitbox.colliderect(sprite.rect):
                 self.rect = original_rect
 
         buttons = pygame.mouse.get_pressed()
         # обычные патроны
-        if buttons[0] and not self.bullets_shooting:
-            self.bullets_shooting = True
-            self.bullets_shooting_cooldown = 0
+        if buttons[0]:
+            # if self.bullets:
+            #    self.camera.shake(1, 1)
+            if not self.bullets_shooting:
+                self.bullets_shooting = True
+                self.bullets_shooting_cooldown = 0
 
         if self.bullets_shooting_cooldown > 150:
             self.bullets_shooting_cooldown = 0
@@ -229,9 +208,12 @@ class Player(pygame.sprite.Sprite):
             self.bullets_reload_cooldown = 50
 
         # заряженные патроны
-        if buttons[2] and not self.e_bullets_shooting:
-            self.e_bullets_shooting = True
-            self.e_bullets_shooting_cooldown = 0
+        if buttons[2]:
+            # if self.energy_bullets:
+            #     self.camera.shake(1, 1)
+            if not self.e_bullets_shooting:
+                self.e_bullets_shooting = True
+                self.e_bullets_shooting_cooldown = 0
 
         if self.e_bullets_shooting_cooldown > 150:
             self.e_bullets_shooting_cooldown = 0
@@ -271,96 +253,65 @@ class Player(pygame.sprite.Sprite):
             self.items.setdefault(item, 0)
             self.items[item] += count
 
-    def use_item(self) -> None:
-        if self.active_slot < len(self.items):
-            item = list(sorted(self.items.items(), key=lambda a: a[0].name))[self.active_slot][0]
-            if self.items[item] == 1:
-                self.items.pop(item)
-            else:
-                self.items[item] -= 1
+    def push(self, value: int | float) -> None:
+        self.rect.x += math.sin(math.radians(self.angle)) * value
+        self.rect.y -= math.cos(math.radians(self.angle)) * value
 
 
-class Lem(pygame.sprite.Sprite):
-    idle_image = load_image(os.path.join("GAME", "enemy", "lem", "idle.png")).convert_alpha()
-    attack_anim1 = [load_image(os.path.join("GAME", "enemy", "lem", "at1", f"{i}.png")).convert_alpha()
-                    for i in range(1, 7)]
-    attack_anim2 = [load_image(os.path.join("GAME", "enemy", "lem", "at2", f"{i}.png")).convert_alpha()
-                    for i in range(1, 5)]
+class DamageView(pygame.sprite.Sprite):
+    font = pygame.font.SysFont(None, 20)
+
+    def __init__(self, damage: int, x: int, y: int):
+        super().__init__(damage_text_group)
+
+        self.damage = damage
+
+        self.text = self.font.render(f'-{self.damage}', True, '#FF0000')
+        self.rect = self.text.get_rect(center=(x, y))
+
+        self.focus = 150
     
-    image_rotated = image = idle_image
+    def update(self) -> None:
+        self.text.set_alpha(self.focus)
+        self.rect.y -= 1
 
-    def __init__(self, x: int, y: int) -> None:
-        super().__init__(monsters_group)
-        self.rect = self.image.get_rect(center=(x, y))
-        self.speed = 5
-        self.hitbox_size = 30
-        self.hitbox = pygame.Rect(0, 0, self.hitbox_size, self.hitbox_size)
-        self.hitbox.center = self.rect.center
-
-    def update(self, player: Player) -> None:
-        rel_x = player.rect.centerx - self.rect.centerx
-        rel_y = player.rect.centery - self.rect.centery
-        angle = math.degrees(math.atan2(rel_x, rel_y))
-        self.image_rotated = pygame.transform.rotate(self.image, angle)
-        self.rect = self.image_rotated.get_rect(center=self.rect.center)
-
-        if (rel_x, rel_y) == (0, 0):
-            return
-
-        direction = pygame.math.Vector2(rel_x, rel_y).normalize()
-        original_rect = self.rect.copy()
-        
-        self.rect.x += direction.x * self.speed
-        self.rect.y += direction.y * self.speed
-        self.hitbox.center = self.rect.center
-
-        collision = any(
-            self.hitbox.colliderect(block.rect) 
-            for block in impassable_block_type
-        )
-
-        if collision:
-            perp1 = pygame.math.Vector2(-direction.y, direction.x)
-            perp2 = pygame.math.Vector2(direction.y, -direction.x)
-            
-            test_rect1 = original_rect.move(perp1 * self.speed)
-            collision1 = any(
-                test_rect1.colliderect(block.rect) 
-                for block in impassable_block_type
-            )
-            
-            test_rect2 = original_rect.move(perp2 * self.speed)
-            collision2 = any(
-                test_rect2.colliderect(block.rect) 
-                for block in impassable_block_type
-            )
-
-            if not collision1:
-                self.rect = test_rect1
-            elif not collision2:
-                self.rect = test_rect2
-            else:
-                self.rect = original_rect
-
-            self.hitbox.center = self.rect.center
-
+        self.focus -= 1
+        if self.focus == 0:
+            self.kill()
+    
     def draw(self, screen: pygame.Surface) -> None:
-        screen.blit(self.image_rotated, self.rect.topleft)
+        screen.blit(self.text, self.rect)
 
 
 class Camera:
     def __init__(self):
         self.dx, self.dy = 0, 0
 
+        self.shake_intensity = 0.
+        self.shake_time = 0
+
     def update(self, target):
-        dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2)
-        dy = -(target.rect.y + target.rect.h // 2 - HEIGHT // 2)
+        if self.shake_time > 0:
+            self.dx += random.uniform(-self.shake_intensity, self.shake_intensity)
+            self.dy += random.uniform(-self.shake_intensity, self.shake_intensity)
+            self.shake_time -= 1
+
+        dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2) * .12
+        dy = -(target.rect.y + target.rect.h // 2 - HEIGHT // 2) * .12
         if abs(dx - self.dx) > 1 or abs(dy - self.dy) > 1:
-            self.dx, self.dy = dx, dy
+            self.dx += (dx - self.dx) * .12
+            self.dy += (dy - self.dy) * .12
+
+        self.dx = round(self.dx)
+        self.dy = round(self.dy)
 
     def apply(self, sprite):
         sprite.rect.x += self.dx
         sprite.rect.y += self.dy
+
+    def shake(self, intensity: int, time: int):
+        self.shake_intensity = intensity
+        self.shake_time = time
 
 
 class Interface:
@@ -397,7 +348,7 @@ class Interface:
         pygame.draw.rect(screen, "#000000", (0, HEIGHT - 100, WIDTH, 100))
 
         self.draw_graph(screen, self.hp_bar_background_none, self.hp_bar_background, self.hp_bar_text_color,
-                        50, HEIGHT - 65, 254, 30, player.hp // player.max_hp, f"{player.hp} / {player.max_hp}")
+                        50, HEIGHT - 65, 254, 30, player.hp / player.max_hp, f"{player.hp} / {player.max_hp}")
 
         items = (
             (player.bullets, player.max_bullets, 'M1', self.m1_skill, self.off_m1_skill),
@@ -410,7 +361,7 @@ class Interface:
 
         inv = list(sorted(player.items.items(), key=lambda a: a[0].name))
         inv += [None] * (9 - len(inv))
-        self.draw_inv(screen, 240, 10, inv, player.active_slot)
+        self.draw_inv(screen, 240, 10, inv)
 
         font = pygame.font.SysFont(None, 35)
         text = font.render(f'${player.money}', True, '#FFFF00')
@@ -443,12 +394,9 @@ class Interface:
             screen.blit(text, place.topleft)
 
     def draw_inv(self, screen: pygame.Surface, x: int, y: int,
-                 items: tuple[tuple[items.Item, int]], active: int) -> None:
+                 items: tuple[tuple[items.Item, int]]) -> None:
         for i, data in enumerate(items):
             place = pygame.draw.rect(screen, "#404974", (x + i * 60, y, 60, 60))
-
-            if i == active:
-                pygame.draw.rect(screen, "#FFFFFF", (x + i * 60, y, 60, 60), 2)
 
             if not data:
                 continue
@@ -544,33 +492,80 @@ def get_gun_coord(coords: tuple[int, int], angle: float, hand: bool) -> tuple[in
 
 def main_game() -> None:
     interface = Interface()
+    camera = Camera()
 
     chests = []
-    monsters = []
+    doors = []
 
-    def draw_map(room: game_map.Room, x_room = 0, y_room = 0):
-        print(x_room, y_room)
-        global player
+    opened_rooms = set()
+    opened_rooms.add((0, 0))
 
-        for y, row in enumerate(room.surface):
+    def next_level(*_) -> None:
+        print(1)
+
+    def spawn_boss(x: int, y: int) -> None:
+        player.doors = True
+        monsters.Quen(x, y, boss_room)
+
+    def draw_any(surface, _x: int, _y: int) -> None:
+        global player, portal
+
+        for y, row in enumerate(surface):
             for x, col in enumerate(row):
-                coords = 80 * x + x_room * 13 * 80, 80 * y + y_room * 13 * 80
+                coords = 80 * x + _x, 80 * y + _y
 
                 if col == '.':
-                    Grass(*coords)
+                    blocks.Grass(*coords)
                 if col == '#':
-                    Wall(*coords)
+                    blocks.Wall(*coords)
                 if col == '@':
-                    Grass(*coords)
-                    player = Player(coords[0] + 60, coords[1] + 60)
+                    blocks.Grass(*coords)
+                    player = Player(coords[0] + 60, coords[1] + 60, camera)
 
                 if col == 'c':
-                    Grass(*coords)
+                    blocks.Grass(*coords)
                     chests.append(Chest(coords[0] + 60, coords[1] + 40))
-
                 if col == 'C':
-                    Grass(*coords)
+                    blocks.Grass(*coords)
                     chests.append(CorruptedChest(coords[0] + 60, coords[1] + 40))
+                
+                if col == 'Q':
+                    monsters.Quen(*coords)
+                
+                if col == 'D':
+                    blocks.Grass(*coords)
+                    doors.append(blocks.Door(*coords))
+                if col == 'd':
+                    blocks.Grass(*coords)
+                    doors.append(blocks.Door(*coords, True))
+                
+                if col == 'p':
+                    portal = blocks.Portal(coords[0] + 40, coords[1] + 40, spawn_boss)
+
+    def draw_hallway(x: int, y: int, rotate: bool = False) -> None:
+        surface = ['#...#',
+                   '#...#',
+                   '#...#',
+                   '#...#',
+                   '#...#']
+        
+        if rotate:
+            surface = [''.join(a) for a in zip(*surface)]
+        
+        draw_any(surface, x, y)
+
+    def draw_map(room: game_map.Room, x_room = 0, y_room = 0):
+        global boss_room
+
+        draw_any(room.surface, x_room * 18 * 80, y_room * 18 * 80)
+
+        pos = []
+        if room.type == game_map.NORMAL_ROOM:
+            pos.append(room.get_random_pos(3))
+            pos.append(room.get_random_pos(1))
+        f = game_map.RoomData(room.type, x_room * 18 * 80 + 160, y_room * 18 * 80 + 160, x_room, y_room, *pos)
+        if room.type == game_map.BOSS_ROOM:
+            boss_room = f
 
         for i, neighbor in enumerate(room.passages):
             if neighbor and type(neighbor) is not bool:
@@ -584,51 +579,91 @@ def main_game() -> None:
                 if i == 3:
                     new_x += 1
                 draw_map(neighbor, new_x, new_y)
+            if type(neighbor) is bool:
+                x_h, y_h = x_room * 18 * 80, y_room * 18 * 80
+                if i == 0:
+                    draw_hallway(x_h + 80 * 4, y_h - 5 * 80)
+                elif i == 1:
+                    draw_hallway(x_h - 5 * 80, y_h + 80 * 4, True)
+                elif i == 2:
+                    draw_hallway(x_h + 80 * 4, y_h + 80 * 13)
+                elif i == 3:
+                    draw_hallway(x_h + 80 * 13, y_h + 80 * 4, True)
     
-    draw_map(game_map.make_map(5))
-
-    camera = Camera()
+    draw_map(game_map.make_map(2))
 
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_f:
-                    player.use_item()
         mouse_pos = pygame.mouse.get_pos()
 
         screen.fill("black")
 
         all_sprites.draw(screen)
+        for door in doors:
+            door.draw(screen, player.doors)
         for chest in chests:
             chest.draw(screen, player)
-        for monster in monsters:
-            monster.draw(screen)
+        portal.draw(screen)
+        monsters_group.draw(screen)
+        monsters_bullets_group.draw(screen)
         player.draw(screen)
         bullets_group.draw(screen)
+        damage_text_group.draw(screen)
 
         interface.draw(screen, player)
 
         bullets_group.update()
+        monsters_bullets_group.update(player)
+        portal.update(player)
         player.update(mouse_pos)
         camera.update(player)
 
+        if (obj := pygame.sprite.spritecollideany(player, game_map.room_group)):
+            if obj.type == game_map.NORMAL_ROOM:
+                if (obj.x, obj.y) not in opened_rooms:
+                    if not obj.trial:
+                        player.doors = True
+                        obj.trial = True
+
+                        player.push(50)
+                        for x, y in obj.monsters_pos:
+                            monsters.Lem(obj.rect.topleft[0] + x * 80 + 40, obj.rect.topleft[1] + y * 80 + 40, obj)
+                    if obj.monsters_count == 0:
+                        player.doors = False
+                        opened_rooms.add((obj.x, obj.y))
+                        for x, y in obj.chests_pos:
+                            chests.append(Chest(obj.rect.topleft[0] + x * 80 + 60, obj.rect.topleft[1] + y * 80  + 40))
+            else:
+                if obj.monsters_count == -1:
+                    portal.reset(next_level)
+
         all_sprites.update()
+        game_map.room_group.update(player)
+        damage_text_group.update()
 
         for chest in chests:
             chest.update(player)
-        for monster in monsters:
-            monster.update(player)
+        monsters_group.update(player)
 
         for sprite in all_sprites:
             camera.apply(sprite)
-        for sprite in monsters:
+        for sprite in damage_text_group:
+            camera.apply(sprite)
+        for sprite in game_map.room_group:
+            camera.apply(sprite)
+        for sprite in monsters_group:
+            camera.apply(sprite)
+        for sprite in monsters_bullets_group:
             camera.apply(sprite)
         for sprite in chests:
             camera.apply(sprite)
+        for sprite in doors:
+            camera.apply(sprite)
         camera.apply(player)
+        camera.apply(portal)
 
         pygame.display.flip()
 
