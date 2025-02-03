@@ -1,5 +1,4 @@
 import pygame
-import os
 import sys
 from menu import Menu
 

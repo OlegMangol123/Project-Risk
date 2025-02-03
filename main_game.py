@@ -5,20 +5,23 @@ import random
 import pygame
 from pygame import Color
 
-from components.other import load_image
+from config import *
+from components.other import *
+
+pygame.init()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+from components.database import add_death
 from components.groups import *
+from components import music
 from components import monsters
 from components import game_map
 from components import items
 from components import blocks
 
-from config import *
+from death import main_death
 
-#
-
-pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-clock = pygame.time.Clock()
 #
 
 
@@ -26,7 +29,7 @@ class Bullet(pygame.sprite.Sprite):
     image = load_image(os.path.join("GAME", "ENTITY", "bullet.png")).convert_alpha()
     damage = 10
 
-    def __init__(self, x: int, y: int, angle: float, damage: int = 10, speed: float = 20.) -> None:
+    def __init__(self, x: int, y: int, angle: float, damage: int = 10, speed: float = 30.) -> None:
         super().__init__(bullets_group, all_sprites)
 
         self.angle = angle
@@ -42,7 +45,7 @@ class Bullet(pygame.sprite.Sprite):
         self.dx = math.cos(math.radians(self.angle)) * self.speed
         self.dy = math.sin(math.radians(self.angle)) * self.speed
 
-    def update(self) -> None:
+    def update(self, player) -> None:
         # движение пули
         self.rect.x += self.dx
         self.rect.y += self.dy
@@ -50,6 +53,8 @@ class Bullet(pygame.sprite.Sprite):
         for monster in monsters_group:
             if monster.hitbox.colliderect(self.rect):
                 monster.hp -= self.damage
+                player.all_damage += self.damage
+
                 DamageView(self.damage, *self.rect.center)
                 self.kill()
 
@@ -89,7 +94,7 @@ class EnergyBullet(Bullet):
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x: int, y: int, camera, speed: float = 5.) -> None:
-        super().__init__()
+        super().__init__(all_sprites)
         
         self.image = load_image(os.path.join("GAME", "Cammando", "untitled.png"))
         self.camera = camera
@@ -120,7 +125,7 @@ class Player(pygame.sprite.Sprite):
         self.hitbox = pygame.Rect(self.rect.centerx - self.hitbox_size // 2,
                                   self.rect.centery - self.hitbox_size // 2,
                                   self.hitbox_size, self.hitbox_size)
-        self.money = 2000  # Начальное количество денег
+        self.money = 50  # Начальное количество денег
 
         self.max_items = 300
         self.items = {}
@@ -131,6 +136,10 @@ class Player(pygame.sprite.Sprite):
         self.max_hp = self.hp = 100
 
         self.doors = False
+
+        # статистика
+        self.all_money = self.money
+        self.all_damage = 0
 
     def update(self, mouse_pos: tuple[int, int]) -> None:
         # Поворот персонажа в сторону мыши
@@ -201,6 +210,7 @@ class Player(pygame.sprite.Sprite):
             if self.bullets > 0:
                 Bullet(*get_gun_coord(self.rect.center, self.angle, self.hand), self.angle)
                 self.bullets -= 1
+                music.shot_fx.play()
                 self.hand = not self.hand
 
         if self.bullets_reload_cooldown <= 0 and self.bullets < self.max_bullets:
@@ -223,6 +233,7 @@ class Player(pygame.sprite.Sprite):
             if self.energy_bullets > 0:
                 EnergyBullet(*get_gun_coord(self.rect.center, self.angle, self.hand), self.angle)
                 self.energy_bullets -= 1
+                music.e_shot_fx.play()
                 self.hand = not self.hand
 
         if self.e_bullets_reload_cooldown <= 0 and self.energy_bullets < self.max_energy_bullets:
@@ -262,7 +273,7 @@ class DamageView(pygame.sprite.Sprite):
     font = pygame.font.SysFont(None, 20)
 
     def __init__(self, damage: int, x: int, y: int):
-        super().__init__(damage_text_group)
+        super().__init__(all_sprites, damage_text_group)
 
         self.damage = damage
 
@@ -344,8 +355,8 @@ class Interface:
 
     def draw(self, screen: pygame.surface.Surface, player: Player) -> None:
         # border
-        pygame.draw.rect(screen, "#000000", (0, 0, WIDTH, 85))
-        pygame.draw.rect(screen, "#000000", (0, HEIGHT - 100, WIDTH, 100))
+        pygame.draw.rect(screen, BACKGROUND_COLOR, (0, 0, WIDTH, 85))
+        pygame.draw.rect(screen, BACKGROUND_COLOR, (0, HEIGHT - 100, WIDTH, 100))
 
         self.draw_graph(screen, self.hp_bar_background_none, self.hp_bar_background, self.hp_bar_text_color,
                         50, HEIGHT - 65, 254, 30, player.hp / player.max_hp, f"{player.hp} / {player.max_hp}")
@@ -409,12 +420,6 @@ class Interface:
 
 
 class Chest(pygame.sprite.Sprite):
-    image = load_image(os.path.join("GAME", "chests", "normal", "chest.png")).convert_alpha()
-    image_opened = load_image(os.path.join("GAME", "chests", "normal", "chest_.png")).convert_alpha()
-
-    animation_frames = [load_image(os.path.join("GAME", "chests", "normal", f"chest{i}.png")).convert_alpha()
-                        for i in range(1, 6)]
-
     chance_item = (
         (0, 80),
         (1, 19),
@@ -422,7 +427,14 @@ class Chest(pygame.sprite.Sprite):
     )
 
     def __init__(self, x: int, y: int, price: int = 25) -> None:
-        super().__init__()
+        self.image = load_image(os.path.join("GAME", "chests", "normal", "chest.png")).convert_alpha()
+        self.image_opened = load_image(os.path.join("GAME", "chests", "normal", "chest_.png")).convert_alpha()
+
+        self.animation_frames = [load_image(os.path.join("GAME", "chests", "normal", f"chest{i}.png")).convert_alpha()
+                                 for i in range(1, 6)]
+        
+        super().__init__(all_sprites)
+    
         self.rect = self.image.get_rect(center=(x, y))
         self.price = price
         self.is_opened = False
@@ -463,17 +475,17 @@ class Chest(pygame.sprite.Sprite):
 
 
 class CorruptedChest(Chest):
-    image = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest.png")).convert_alpha()
-    image_opened = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest_.png")).convert_alpha()
-
-    animation_frames = [load_image(os.path.join("GAME", "chests", "corrupted chest", f"chest{i}.png")).convert_alpha()
-                        for i in range(1, 6)]
-
     chance_item = (
         (2, 100),
     )
 
     def __init__(self, x: int, y: int, price: int = 75) -> None:
+        self.image = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest.png")).convert_alpha()
+        self.image_opened = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest_.png")).convert_alpha()
+
+        self.animation_frames = [load_image(os.path.join("GAME", "chests", "corrupted chest", f"chest{i}.png")).convert_alpha()
+                                 for i in range(1, 6)]
+    
         super().__init__(x, y, price)
 
 
@@ -490,7 +502,12 @@ def get_gun_coord(coords: tuple[int, int], angle: float, hand: bool) -> tuple[in
     return x, y
 
 
-def main_game() -> None:
+def main_game(dr: int = 0, dg: int = 0, db: int = 0,
+              player_items = {}, player_money: int = 50,
+              player_hp: int = 100, player_max_hp: int = 100,
+              player_all_money: int = 50, player_all_damage: int = 0) -> None:
+    convert_path_to_img((dr, dg, db))
+
     interface = Interface()
     camera = Camera()
 
@@ -501,11 +518,36 @@ def main_game() -> None:
     opened_rooms.add((0, 0))
 
     def next_level(*_) -> None:
-        print(1)
+        global portal, player, camera, interface
+        for sprite in all_sprites:
+            sprite.kill()
+        for sprite in doors:
+            sprite.kill()
+        for sprite in chests:
+            sprite.kill()
+
+        data = (player.items, player.money, player.hp, player.max_hp,
+                player.all_money, player.all_damage)
+
+        portal = None
+        player = None
+        interface = None
+        camera = None
+
+        screen.fill(BACKGROUND_COLOR)
+        pygame.display.flip()
+        clock.tick(FPS)
+
+        r = random.randint(-50, 50)
+        g = random.randint(-50, 50)
+        b = random.randint(-50, 50)
+
+        main_game(r, g, b, *data)
+        return
 
     def spawn_boss(x: int, y: int) -> None:
         player.doors = True
-        monsters.Quen(x, y, boss_room)
+        monsters.SpawnMonster(x, y, monsters.Quen, (boss_room, ))
 
     def draw_any(surface, _x: int, _y: int) -> None:
         global player, portal
@@ -521,6 +563,12 @@ def main_game() -> None:
                 if col == '@':
                     blocks.Grass(*coords)
                     player = Player(coords[0] + 60, coords[1] + 60, camera)
+                    player.hp = player_hp
+                    player.max_hp = player_max_hp
+                    player.items = player_items
+                    player.money = player_money
+                    player.all_money = player_all_money
+                    player.all_damage = player_all_damage
 
                 if col == 'c':
                     blocks.Grass(*coords)
@@ -540,6 +588,7 @@ def main_game() -> None:
                     doors.append(blocks.Door(*coords, True))
                 
                 if col == 'p':
+                    blocks.Grass(*coords)
                     portal = blocks.Portal(coords[0] + 40, coords[1] + 40, spawn_boss)
 
     def draw_hallway(x: int, y: int, rotate: bool = False) -> None:
@@ -599,14 +648,15 @@ def main_game() -> None:
                 running = False
         mouse_pos = pygame.mouse.get_pos()
 
-        screen.fill("black")
+        screen.fill(BACKGROUND_COLOR)
 
-        all_sprites.draw(screen)
+        block_group.draw(screen)
         for door in doors:
             door.draw(screen, player.doors)
         for chest in chests:
             chest.draw(screen, player)
         portal.draw(screen)
+        mosters_spawns_group.draw(screen)
         monsters_group.draw(screen)
         monsters_bullets_group.draw(screen)
         player.draw(screen)
@@ -615,11 +665,41 @@ def main_game() -> None:
 
         interface.draw(screen, player)
 
-        bullets_group.update()
+        block_group.update()
+        bullets_group.update(player)
+        mosters_spawns_group.update()
         monsters_bullets_group.update(player)
         portal.update(player)
         player.update(mouse_pos)
         camera.update(player)
+
+        game_map.room_group.update(player)
+        damage_text_group.update()
+
+        for chest in chests:
+            chest.update(player)
+        monsters_group.update(player)
+
+        for sprite in block_group:
+            camera.apply(sprite)
+        for sprite in damage_text_group:
+            camera.apply(sprite)
+        for sprite in game_map.room_group:
+            camera.apply(sprite)
+        for sprite in monsters_group:
+            camera.apply(sprite)
+        for sprite in monsters_bullets_group:
+            camera.apply(sprite)
+        for sprite in mosters_spawns_group:
+            camera.apply(sprite)
+        for sprite in chests:
+            camera.apply(sprite)
+        for sprite in doors:
+            camera.apply(sprite)
+        camera.apply(player)
+        camera.apply(portal)
+
+        pygame.display.flip()
 
         if (obj := pygame.sprite.spritecollideany(player, game_map.room_group)):
             if obj.type == game_map.NORMAL_ROOM:
@@ -630,7 +710,10 @@ def main_game() -> None:
 
                         player.push(50)
                         for x, y in obj.monsters_pos:
-                            monsters.Lem(obj.rect.topleft[0] + x * 80 + 40, obj.rect.topleft[1] + y * 80 + 40, obj)
+                            monsters.SpawnMonster(obj.rect.topleft[0] + x * 80 - 40,
+                                                  obj.rect.topleft[1] + y * 80 - 40,
+
+                                                  monsters.Lem, (obj, ))
                     if obj.monsters_count == 0:
                         player.doors = False
                         opened_rooms.add((obj.x, obj.y))
@@ -639,33 +722,13 @@ def main_game() -> None:
             else:
                 if obj.monsters_count == -1:
                     portal.reset(next_level)
-
-        all_sprites.update()
-        game_map.room_group.update(player)
-        damage_text_group.update()
-
-        for chest in chests:
-            chest.update(player)
-        monsters_group.update(player)
-
-        for sprite in all_sprites:
-            camera.apply(sprite)
-        for sprite in damage_text_group:
-            camera.apply(sprite)
-        for sprite in game_map.room_group:
-            camera.apply(sprite)
-        for sprite in monsters_group:
-            camera.apply(sprite)
-        for sprite in monsters_bullets_group:
-            camera.apply(sprite)
-        for sprite in chests:
-            camera.apply(sprite)
-        for sprite in doors:
-            camera.apply(sprite)
-        camera.apply(player)
-        camera.apply(portal)
-
-        pygame.display.flip()
+        
+        if player.hp <= 0:
+            add_death(player.all_money, player.all_damage)
+            main_death(
+                {'Урона нанесено': str(player.all_damage),
+                 'Собрано монет': str(player.all_money)}
+            )
 
         clock.tick(FPS)
 

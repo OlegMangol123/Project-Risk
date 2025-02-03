@@ -10,8 +10,10 @@ class TextGroup(pygame.sprite.Group):
 all_sprites = pygame.sprite.Group()
 bullets_group = pygame.sprite.Group()
 monsters_group = pygame.sprite.Group()
+mosters_spawns_group = pygame.sprite.Group()
 doors_group = pygame.sprite.Group()
 none_group = pygame.sprite.Group()
+block_group = pygame.sprite.Group()
 damage_text_group = TextGroup()
 
 monsters_bullets_group = pygame.sprite.Group()

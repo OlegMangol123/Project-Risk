@@ -1,6 +1,8 @@
 import random
 
 import pygame
+
+from components.groups import all_sprites
 #
 
 room_group = pygame.sprite.Group()
@@ -14,7 +16,7 @@ BOSS_ROOM = 1
 class RoomData(pygame.sprite.Sprite):
     def __init__(self, type, x_sceen: int, y_screen: int, x:int, y: int,
                  monsters_pos: list = [], chests_pos: list = []) -> None:
-        super().__init__(room_group)
+        super().__init__(all_sprites, room_group)
 
         self.image = pygame.Surface((9 * 80, 9 * 80)).convert()
         self.rect = self.image.get_rect(topleft=(x_sceen, y_screen))

@@ -1,4 +1,3 @@
-import os
 import math
 import random
 
@@ -10,13 +9,11 @@ from components.other import *
 
 class Lem(pygame.sprite.Sprite):
     def __init__(self, x: int, y: int, room_data) -> None:
-        super().__init__(monsters_group)
+        super().__init__(all_sprites, monsters_group)
 
-        self.idle_image = load_image(os.path.join("GAME", "enemy", "lem", "idle.png")).convert_alpha()
-        self.attack_anim1 = [load_image(os.path.join("GAME", "enemy", "lem", "at1", f"{i}.png")).convert_alpha()
-                             for i in range(1, 8)]
-        self.attack_anim2 = [load_image(os.path.join("GAME", "enemy", "lem", "at2", f"{i}.png")).convert_alpha()
-                             for i in range(1, 6)]
+        self.idle_image = images['enemy.lem']
+        self.attack_anim1 = images['enemy.lem.at1']
+        self.attack_anim2 = images['enemy.lem.at2']
     
         self.all_attacks = ((self.attack_anim1, 15), (self.attack_anim2, 10))
 
@@ -28,6 +25,7 @@ class Lem(pygame.sprite.Sprite):
         self.room_data = room_data
 
         self.rect = self.image.get_rect(center=(x, y))
+
         self.speed = 2
         self.hitbox_size = 80
         self.hitbox = pygame.Rect(0, 0, self.hitbox_size, self.hitbox_size)
@@ -43,6 +41,10 @@ class Lem(pygame.sprite.Sprite):
     def update(self, player) -> None:
         if self.hp <= 0:
             self.kill()
+            money = random.randint(0, 10)
+            player.money += money
+            player.all_money += money
+
             self.room_data.killed_monster()
         
         self.hitbox.center = self.rect.center
@@ -132,11 +134,10 @@ class Lem(pygame.sprite.Sprite):
 
 class Quen(pygame.sprite.Sprite):
     def __init__(self, x: int, y: int, room_data) -> None:
-        super().__init__(monsters_group)
+        super().__init__(all_sprites, monsters_group)
 
-        self.idle_image = load_image(os.path.join("GAME", "enemy", "quen", "quen.png")).convert_alpha()
-        self.attack_anim = [load_image(os.path.join("GAME", "enemy", "quen", "at", f"at{i}.png")).convert_alpha()
-                            for i in range(1, 5)]
+        self.idle_image = images['enemy.quen']
+        self.attack_anim = images['enemy.quen.at']
 
         self.image = self.this_image = self.idle_image
         self.angle = 0
@@ -184,7 +185,7 @@ class Quen(pygame.sprite.Sprite):
 
                 if self.attack_count == 3:
                     self.attack_count = 0
-                    self.attack_cooldown = 240
+                    self.attack_cooldown = 200
                     self.this_image = self.idle_image
 
         self.attack_cooldown -= 1
@@ -207,13 +208,13 @@ class Quen(pygame.sprite.Sprite):
 
 class QuenAttack(pygame.sprite.Sprite):
     def __init__(self, x: int, y: int, angle: float, speed: float = 11) -> None:
-        super().__init__(monsters_bullets_group)
+        super().__init__(all_sprites, monsters_bullets_group)
 
         self.speed = speed
         self.angle = angle - 90
     
-        self.flying_image = load_image(os.path.join("GAME", "enemy", "quen", "entity", "harch.png")).convert_alpha()
-        self.ground_image = load_image(os.path.join("GAME", "enemy", "quen", "entity", "harch1.png")).convert_alpha()
+        self.flying_image = images['entity.quen.harch']
+        self.ground_image = images['entity.quen.harch1']
 
         self.image = self.flying_image
         self.image = pygame.transform.rotate(self.image, self.angle + 90)
@@ -254,3 +255,31 @@ class QuenAttack(pygame.sprite.Sprite):
     
     def draw(self, screen: pygame.Surface) -> None:
         screen.blit(self.image, self.rect.center)
+
+
+class SpawnMonster(pygame.sprite.Sprite):
+    def __init__(self, x: int, y: int, monster, monster_data) -> None:
+        super().__init__(all_sprites, mosters_spawns_group)
+
+        self.anim = images['monster_spawn']
+        self.frame = 0
+        self.image = self.anim[self.frame]
+        self.start = 60
+        self.rect = self.image.get_rect(center=(x, y))
+
+        self.monser, self.monser_data = monster, monster_data
+    
+    def update(self) -> None:
+        if self.start <= 0:
+            if self.frame + 1 < len(self.anim):
+                self.frame += 1
+                self.image = self.anim[self.frame]
+            else:
+                self.monser(*self.rect.center, *self.monser_data)
+                self.kill()
+        else:
+            self.start -= 1
+    
+    def draw(self, screen: pygame.Surface) -> None:
+        screen.blit(self.image, self.rect.topleft)
+
