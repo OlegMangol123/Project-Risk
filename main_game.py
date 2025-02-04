@@ -151,13 +151,18 @@ class Player(pygame.sprite.Sprite):
 
         self.image_rotated = self.image
 
-        self.max_hp = self.hp = 100
+        self.max_hp = self.hp = 2000
 
         self.doors = False
 
         # статистика
         self.all_money = self.money
         self.all_damage = 0
+
+        # В классе Player
+        self.info_image = None
+        self.info_display_time = 0
+
 
     def update(self, mouse_pos: tuple[int, int]) -> None:
         # Поворот персонажа в сторону мыши
@@ -283,6 +288,8 @@ class Player(pygame.sprite.Sprite):
             self.bullets_shooting = False
         if not buttons[2]:
             self.e_bullets_shooting = False
+        if self.info_display_time > 0:
+            self.info_display_time -= clock.get_time()
 
     def get_distance(self, object: pygame.sprite.Sprite) -> float:
         return math.sqrt((self.rect.centerx - object.rect.centerx)
@@ -291,10 +298,20 @@ class Player(pygame.sprite.Sprite):
     def draw(self, screen: pygame.Surface) -> None:
         screen.blit(self.image_rotated, self.rect.topleft)
 
+        # Отображение информации о предмете
+        if self.info_image and self.info_display_time > 0:
+            screen.blit(self.info_image, (WIDTH//3.5, HEIGHT//1.4))  # Отображаем над игроком
+
+    def show_item_info(self, item: items.Item):
+        # Отображение информации о предмете
+        self.info_image = item.image_info  # Сохраняем изображение информации
+        self.info_display_time = 3000  # Время отображения в миллисекундах
+
     def add_item(self, item: items.Item, count: int = 1) -> None:
         if len(self.items) < self.max_items:
             self.items.setdefault(item, 0)
             self.items[item] += count
+            self.show_item_info(item)  # Отображение информации о предмете
 
     def push(self, value: int | float) -> None:
         self.rect.x += math.sin(math.radians(self.angle)) * value
@@ -405,7 +422,9 @@ class Interface:
     off_r_skill.convert_alpha()
 
     def __init__(self) -> None:
-        ...
+        self.item_info_image = None
+        self.item_info_display_time = 0
+        self.item_info_position = (0, 0)
 
     def draw(self, screen: pygame.surface.Surface, player: Player) -> None:
         # border
@@ -457,18 +476,23 @@ class Interface:
         text = font.render(f'${player.money}', True, '#FFFF00')
         screen.blit(text, (10, 10))
 
-    def draw_graph(
-            self,
-            screen: pygame.Surface,
-            background_color: Color,
-            graph_color: Color,
-            text_color: Color,
-            x: int,
-            y: int,
-            width: int,
-            height: int,
-            value: float,
-            text: str = "") -> None:
+        if self.item_info_image:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            scaled_image = pygame.transform.scale(self.item_info_image, (self.item_info_image.get_width() // 1.5,
+                                                                         self.item_info_image.get_height() // 1.5))
+            screen.blit(scaled_image, (mouse_x + 10, mouse_y + 10))
+
+    def show_item_info(self, item: items.Item):
+        self.item_info_image = item.image_info  # Сохраняем изображение информации
+        self.item_info_display_time = 3000  # Время отображения в миллисекундах
+
+    def hide_item_info(self):
+        self.item_info_image = None
+
+    def draw_graph(self, screen: pygame.Surface,
+                   background_color: Color, graph_color: Color, text_color: Color,
+                   x: int, y: int, width: int, height: int,
+                   value: float, text: str = "") -> None:
         pygame.draw.rect(screen, background_color, (x, y, width, height))
         pygame.draw.rect(
             screen, graph_color, (x, y, int(
@@ -506,6 +530,9 @@ class Interface:
 
     def draw_inv(self, screen: pygame.Surface, x: int, y: int,
                  items: tuple[tuple[items.Item, int]]) -> None:
+        # Сбрасываем информацию о предмете перед отрисовкой инвентаря
+        self.hide_item_info()
+
         for i, data in enumerate(items):
             place = pygame.draw.rect(
                 screen, "#404974", (x + i * 60, y, 60, 60))
@@ -523,6 +550,10 @@ class Interface:
                  text.get_size()[0],
                  place.bottomright[1] -
                  text.get_size()[1]))
+
+            # Проверка наведения курсора на иконку
+            if place.collidepoint(pygame.mouse.get_pos()):
+                self.show_item_info(item)  # Отображаем информацию о предмете
 
 
 class Chest(pygame.sprite.Sprite):
@@ -801,10 +832,12 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0, level=1,
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
         mouse_pos = pygame.mouse.get_pos()
 
         screen.fill(BACKGROUND_COLOR)
 
+        # Отрисовка объектов на экране
         block_group.draw(screen)
         for door in doors:
             door.draw(screen, player.doors)
@@ -814,20 +847,25 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0, level=1,
         mosters_spawns_group.draw(screen)
         monsters_group.draw(screen)
         monsters_bullets_group.draw(screen)
-        player.draw(screen)
+
+        # Рисуем игрока
+        player.draw(screen)  # Здесь вызывается метод draw игрока
+
         bullets_group.draw(screen)
         damage_text_group.draw(screen)
 
         interface.draw(screen, player)
 
+        # Обновление состояния объектов
         block_group.update()
         bullets_group.update(player)
         mosters_spawns_group.update()
         monsters_bullets_group.update(player)
         portal.update(player)
-        player.update(mouse_pos)
+        player.update(mouse_pos)  # Обновляем состояние игрока
         camera.update(player)
 
+        # Обновляем другие группы объектов
         game_map.room_group.update(player)
         damage_text_group.update()
 
@@ -835,6 +873,7 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0, level=1,
             chest.update(player)
         monsters_group.update(player)
 
+        # Применяем камеру ко всем объектам
         for sprite in block_group:
             camera.apply(sprite)
         for sprite in damage_text_group:
