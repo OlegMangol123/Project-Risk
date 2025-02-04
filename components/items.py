@@ -21,8 +21,10 @@ class Item:
     name: str
     rare: int
 
-    def __init__(self) -> None:
-        ...
+    def __init__(self, name, image_item, info_image):
+        self.name = name
+        self.image_item = load_image(image_item).convert_alpha()
+        self.info_image = load_image(info_image).convert_alpha()
 
 
 class Bungus(Item):
