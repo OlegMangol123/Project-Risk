@@ -1,3 +1,11 @@
+from components.database import add_death
+from components.groups import *
+from components import music
+from components import monsters
+from components import game_map
+from components import items
+from components import blocks
+from death import main_death
 import os
 import math
 import random
@@ -12,14 +20,6 @@ pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
-from death import main_death
-from components import blocks
-from components import items
-from components import game_map
-from components import monsters
-from components import music
-from components.groups import *
-from components.database import add_death
 #
 
 
@@ -163,7 +163,6 @@ class Player(pygame.sprite.Sprite):
         self.info_image = None
         self.info_display_time = 0
 
-
     def update(self, mouse_pos: tuple[int, int]) -> None:
         # Поворот персонажа в сторону мыши
         rel_x, rel_y = mouse_pos[0] - \
@@ -300,7 +299,8 @@ class Player(pygame.sprite.Sprite):
 
         # Отображение информации о предмете
         if self.info_image and self.info_display_time > 0:
-            screen.blit(self.info_image, (WIDTH//3.5, HEIGHT//1.4))  # Отображаем над игроком
+            # Отображаем над игроком
+            screen.blit(self.info_image, (WIDTH // 3.5, HEIGHT // 1.4))
 
     def show_item_info(self, item: items.Item):
         # Отображение информации о предмете
@@ -478,8 +478,10 @@ class Interface:
 
         if self.item_info_image:
             mouse_x, mouse_y = pygame.mouse.get_pos()
-            scaled_image = pygame.transform.scale(self.item_info_image, (self.item_info_image.get_width() // 1.5,
-                                                                         self.item_info_image.get_height() // 1.5))
+            scaled_image = pygame.transform.scale(
+                self.item_info_image,
+                (self.item_info_image.get_width() // 1.5,
+                 self.item_info_image.get_height() // 1.5))
             screen.blit(scaled_image, (mouse_x + 10, mouse_y + 10))
 
     def show_item_info(self, item: items.Item):
@@ -489,10 +491,18 @@ class Interface:
     def hide_item_info(self):
         self.item_info_image = None
 
-    def draw_graph(self, screen: pygame.Surface,
-                   background_color: Color, graph_color: Color, text_color: Color,
-                   x: int, y: int, width: int, height: int,
-                   value: float, text: str = "") -> None:
+    def draw_graph(
+            self,
+            screen: pygame.Surface,
+            background_color: Color,
+            graph_color: Color,
+            text_color: Color,
+            x: int,
+            y: int,
+            width: int,
+            height: int,
+            value: float,
+            text: str = "") -> None:
         pygame.draw.rect(screen, background_color, (x, y, width, height))
         pygame.draw.rect(
             screen, graph_color, (x, y, int(
@@ -701,8 +711,14 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0, level=1,
         for sprite in chests:
             sprite.kill()
 
-        data = (level + 1, player.items, player.money, player.hp, player.max_hp,
-                player.all_money, player.all_damage)
+        data = (
+            level + 1,
+            player.items,
+            player.money,
+            player.hp,
+            player.max_hp,
+            player.all_money,
+            player.all_damage)
 
         portal = None
         player = None
@@ -789,7 +805,8 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0, level=1,
 
         pos = []
         if room.type == game_map.NORMAL_ROOM:
-            pos.append(room.get_random_pos(min(15, random.randint(3, 5 + level))))
+            pos.append(room.get_random_pos(
+                min(10, random.randint(3, 5 + level))))
             pos.append(room.get_random_pos(1))
         f = game_map.RoomData(
             room.type,
@@ -798,7 +815,7 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0, level=1,
             x_room,
             y_room,
             *pos)
-            
+
         if room.type == game_map.BOSS_ROOM:
             boss_room = f
 

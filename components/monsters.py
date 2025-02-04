@@ -41,7 +41,7 @@ class Lem(pygame.sprite.Sprite):
     def update(self, player) -> None:
         if self.hp <= 0:
             self.kill()
-            money = random.randint(0, 10)
+            money = random.randint(0, 5)
             player.money += money
             player.all_money += money
 
@@ -144,7 +144,7 @@ class Quen(pygame.sprite.Sprite):
         self.angle = 0
         self.room_data = room_data
 
-        self.hp = 750
+        self.hp = 1200
 
         self.rect = self.image.get_rect(center=(x, y))
         self.speed = 2
@@ -213,7 +213,7 @@ class QuenAttack(pygame.sprite.Sprite):
             x: int,
             y: int,
             angle: float,
-            speed: float = 11) -> None:
+            speed: float = 12) -> None:
         super().__init__(all_sprites, monsters_bullets_group)
 
         self.speed = speed
