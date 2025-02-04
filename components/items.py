@@ -7,7 +7,10 @@ from components.other import load_image
 
 
 def item(data: str) -> pygame.Surface:
-    return pygame.transform.scale(load_image(os.path.join("GAME", "items", data, "item.png")), (60, 60))
+    return pygame.transform.scale(
+        load_image(
+            os.path.join(
+                "GAME", "items", data, "item.png")), (60, 60))
 
 
 def info(data: str) -> pygame.Surface:

@@ -13,10 +13,11 @@ class Door(pygame.sprite.Sprite):
         self.image = images['blocks.door']
 
         if rotate:
-            self.image = pygame.transform.rotate(self.image, 90).convert_alpha()
+            self.image = pygame.transform.rotate(
+                self.image, 90).convert_alpha()
 
         self.rect = self.image.get_rect(topleft=(x, y))
-    
+
     def draw(self, screen: pygame.Surface, opened: bool) -> None:
         if opened:
             screen.blit(self.image, self.rect.topleft)
@@ -72,10 +73,10 @@ class Portal(pygame.sprite.Sprite):
                 self.active = True
         else:
             self.image = self.normal_image
-    
+
     def draw(self, screen: pygame.Surface) -> None:
         screen.blit(self.image, self.rect.topleft)
-    
+
     def reset(self, func) -> None:
         self.func = func
         self.active = False

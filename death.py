@@ -9,7 +9,13 @@ class Menu:
     def __init__(self, stats: dict):
 
         # Загрузка кнопок и логотипа
-        self.logo = pygame.image.load(os.path.join("GAME", "menu", "sprites", "smth", "logo.png"))
+        self.logo = pygame.image.load(
+            os.path.join(
+                "GAME",
+                "menu",
+                "sprites",
+                "smth",
+                "logo.png"))
 
         self.stats = stats
         self.first_font = pygame.font.SysFont(None, 40, bold=True)
@@ -29,13 +35,21 @@ class Menu:
         screen.blit(text, rect)
 
         for i, (name, value) in enumerate(self.stats.items()):
-            q = pygame.draw.rect(screen, ('#000000' if i % 2 == 0 else '#050505'), (0, 100 + i * 75, WIDTH, 75))
+            q = pygame.draw.rect(
+                screen, ('#000000' if i %
+                         2 == 0 else '#050505'), (0, 100 + i * 75, WIDTH, 75))
             text = self.font.render(name, True, '#FFFFFF')
-            rect = text.get_rect(topleft=(q.topleft[0] + 30, q.topleft[1] + 30))
+            rect = text.get_rect(
+                topleft=(
+                    q.topleft[0] + 30,
+                    q.topleft[1] + 30))
             screen.blit(text, rect)
 
             text = self.font.render(value, True, '#FFFFFF')
-            rect = text.get_rect(topright=(q.topright[0] - 30, q.topright[1] + 30))
+            rect = text.get_rect(
+                topright=(
+                    q.topright[0] - 30,
+                    q.topright[1] + 30))
             screen.blit(text, rect)
 
 

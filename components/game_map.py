@@ -12,9 +12,8 @@ NORMAL_ROOM = 0
 BOSS_ROOM = 1
 
 
-
 class RoomData(pygame.sprite.Sprite):
-    def __init__(self, type, x_sceen: int, y_screen: int, x:int, y: int,
+    def __init__(self, type, x_sceen: int, y_screen: int, x: int, y: int,
                  monsters_pos: list = [], chests_pos: list = []) -> None:
         super().__init__(all_sprites, room_group)
 
@@ -30,7 +29,7 @@ class RoomData(pygame.sprite.Sprite):
         self.type = type
 
         self.monsters_count = len(self.monsters_pos)
-    
+
     def killed_monster(self) -> None:
         self.monsters_count -= 1
 
@@ -61,18 +60,18 @@ class Room:
     def format(self) -> None:
         if self.passages[0] is not None:
             self.surface[0] = '#####ddd#####'
-        
+
         if self.passages[2] is not None:
             self.surface[-1] = '#####ddd#####'
-        
+
         if self.passages[1] is not None:
             for i in range(5, 8):
-                self.surface[i] ='D' + self.surface[i][1:]
-        
+                self.surface[i] = 'D' + self.surface[i][1:]
+
         if self.passages[3] is not None:
             for i in range(5, 8):
                 self.surface[i] = self.surface[i][:-1] + 'D'
-    
+
     def get_random_pos(self, count: int) -> list[int]:
         f = []
         for x, row in enumerate(self.surface[3:-3]):
@@ -87,7 +86,7 @@ class Room2(Room):
     # [top, left, bott, right]
     def __init__(self, passages: list) -> None:
         super().__init__(passages)
-    
+
         self.surface = [
             '#############',
             '#...........#',
@@ -106,6 +105,53 @@ class Room2(Room):
 
         self.type = NORMAL_ROOM
 
+
+class Room3(Room):
+    # [top, left, bott, right]
+    def __init__(self, passages: list) -> None:
+        super().__init__(passages)
+
+        self.surface = [
+            '#############',
+            '#...........#',
+            '#...........#',
+            '#...........#',
+            '#...#####...#',
+            '#.......#...#',
+            '#...........#',
+            '#...#.......#',
+            '#...#####...#',
+            '#...........#',
+            '#...........#',
+            '#...........#',
+            '#############',
+        ]
+
+        self.type = NORMAL_ROOM
+
+
+class Room4(Room):
+    # [top, left, bott, right]
+    def __init__(self, passages: list) -> None:
+        super().__init__(passages)
+
+        self.surface = [
+            '#############',
+            '#...........#',
+            '#...........#',
+            '#...........#',
+            '#...#...#...#',
+            '#...........#',
+            '#...........#',
+            '#...#...#...#',
+            '#....###....#',
+            '#...........#',
+            '#...........#',
+            '#...........#',
+            '#############',
+        ]
+
+        self.type = NORMAL_ROOM
 
 
 class Start(Room):
@@ -152,24 +198,40 @@ class Boss(Room):
         self.type = BOSS_ROOM
 
 
-rooms = [Room, Room2]
-    
+rooms = ((Room, 40),
+         (Room2, 50),
+         (Room3, 30),
+         (Room4, 10))
+
+
+def get_random() -> Room:
+    return random.choices(tuple(map(lambda a: a[0], rooms)),
+                          tuple(map(lambda a: a[1], rooms)),
+                          k=1)[0]
+
 
 def make_map(rooms_count: int):
     first_map = _map = recurs_map(rooms_count)
+
     f = list(filter(lambda a: a and type(a) is not bool, _map.passages))
     while f:
         _map = random.choice(f)
         f = list(filter(lambda a: a and type(a) is not bool, _map.passages))
+
     _map.surface = Boss(_map.passages).surface
     _map.type = BOSS_ROOM
     _map.format()
     return first_map
 
 
-
-def recurs_map(rooms_count: int, x: int = 0, y: int = 0, last: int | None = None,
-               room: Room = Start([None] * 4), generated_rooms: set = set()) -> Room:
+def recurs_map(
+        rooms_count: int,
+        x: int = 0,
+        y: int = 0,
+        last: int | None = None,
+        room: Room = Start(
+            [None] * 4),
+        generated_rooms: set = set()) -> Room:
     generated_rooms.add((x, y))
 
     if rooms_count <= 0:
@@ -185,9 +247,9 @@ def recurs_map(rooms_count: int, x: int = 0, y: int = 0, last: int | None = None
 
     for i, neighbor in enumerate(neighbors):
         if neighbor:
-            new_room = random.choice(rooms)([None] * 4)
+            new_room = get_random()([None] * 4)
 
-            new_x, new_y = x, y 
+            new_x, new_y = x, y
             if i == 0:
                 new_x -= 1
             if i == 1:
@@ -198,8 +260,13 @@ def recurs_map(rooms_count: int, x: int = 0, y: int = 0, last: int | None = None
                 new_y += 1
 
             if (new_x, new_y) not in generated_rooms:
-                room.passages[i] = recurs_map(room_n, x=new_x, y=new_y, last=i,
-                                            room=new_room, generated_rooms=generated_rooms)                        
+                room.passages[i] = recurs_map(
+                    room_n,
+                    x=new_x,
+                    y=new_y,
+                    last=i,
+                    room=new_room,
+                    generated_rooms=generated_rooms)
 
     if last is not None:
         room.passages[last - 2] = True

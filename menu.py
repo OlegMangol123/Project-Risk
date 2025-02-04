@@ -14,9 +14,17 @@ class Menu:
         self.last_update = pygame.time.get_ticks()
 
         # Загрузка кнопок и логотипа
-        self.play_button = pygame.image.load(os.path.join("GAME", "menu", "sprites", "smth", "play.png"))
-        self.quit_button = pygame.image.load(os.path.join("GAME", "menu", "sprites", "smth", "quit.png"))
-        self.logo = pygame.image.load(os.path.join("GAME", "menu", "sprites", "smth", "logo.png"))
+        self.play_button = pygame.image.load(os.path.join(
+            "GAME", "menu", "sprites", "smth", "play.png"))
+        self.quit_button = pygame.image.load(os.path.join(
+            "GAME", "menu", "sprites", "smth", "quit.png"))
+        self.logo = pygame.image.load(
+            os.path.join(
+                "GAME",
+                "menu",
+                "sprites",
+                "smth",
+                "logo.png"))
 
         # Изменение размеров кнопок
         self.play_button = pygame.transform.scale(self.play_button, (384, 100))
@@ -25,8 +33,10 @@ class Menu:
 
         # Позиции кнопок и логотипа (слева)
         self.logo_rect = self.logo.get_rect(topleft=(50, 150))  # Логотип
-        self.play_button_rect = self.play_button.get_rect(topleft=(50, 200 + 300))  # Кнопка "Играть" ниже логотипа
-        self.quit_button_rect = self.quit_button.get_rect(topleft=(50, 320 + 300))  # Кнопка "Выйти" ниже кнопки "Играть"
+        self.play_button_rect = self.play_button.get_rect(
+            topleft=(50, 200 + 300))  # Кнопка "Играть" ниже логотипа
+        self.quit_button_rect = self.quit_button.get_rect(
+            topleft=(50, 320 + 300))  # Кнопка "Выйти" ниже кнопки "Играть"
 
     def load_sprites(self):
         sprites = []
@@ -39,7 +49,8 @@ class Menu:
     def update(self):
         current_time = pygame.time.get_ticks()
         if current_time - self.last_update > self.frame_time:
-            self.current_frame = (self.current_frame + 1) % len(self.sprite_images)
+            self.current_frame = (self.current_frame +
+                                  1) % len(self.sprite_images)
             self.last_update = current_time
 
     def draw(self, screen):
@@ -88,6 +99,7 @@ def main_menu():
         clock.tick(FPS)
 
     main_game()
+
 
 if __name__ == "__main__":
     main_menu()

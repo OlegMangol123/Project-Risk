@@ -12,6 +12,8 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Project of Risk")
 
 # Главный игровой цикл
+
+
 def main():
     clock = pygame.time.Clock()
     menu = Menu()
@@ -34,6 +36,7 @@ def main():
         pygame.display.flip()
 
         clock.tick(FPS)  # Ограничение FPS
+
 
 if __name__ == "__main__":
     main()

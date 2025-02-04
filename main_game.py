@@ -12,28 +12,37 @@ pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
-from components.database import add_death
-from components.groups import *
-from components import music
-from components import monsters
-from components import game_map
-from components import items
-from components import blocks
-
 from death import main_death
-
+from components import blocks
+from components import items
+from components import game_map
+from components import monsters
+from components import music
+from components.groups import *
+from components.database import add_death
 #
 
 
 class Bullet(pygame.sprite.Sprite):
-    image = load_image(os.path.join("GAME", "ENTITY", "bullet.png")).convert_alpha()
+    image = load_image(
+        os.path.join(
+            "GAME",
+            "ENTITY",
+            "bullet.png")).convert_alpha()
     damage = 10
 
-    def __init__(self, x: int, y: int, angle: float, damage: int = 10, speed: float = 30.) -> None:
+    def __init__(
+            self,
+            x: int,
+            y: int,
+            angle: float,
+            damage: int = 10,
+            speed: float = 30.) -> None:
         super().__init__(bullets_group, all_sprites)
 
         self.angle = angle
-        self.image = pygame.transform.rotate(self.image, -self.angle)  # поворот пули
+        self.image = pygame.transform.rotate(
+            self.image, -self.angle)  # поворот пули
 
         self.rect = self.image.get_rect(center=(x, y))
         self.speed = speed
@@ -70,7 +79,11 @@ class Bullet(pygame.sprite.Sprite):
 
 
 class EnergyBullet(Bullet):
-    image = load_image(os.path.join("GAME", "ENTITY", "energy_bullet.png")).convert_alpha()
+    image = load_image(
+        os.path.join(
+            "GAME",
+            "ENTITY",
+            "energy_bullet.png")).convert_alpha()
     damage = 15
 
     def __init__(self, x: int, y: int, angle: float, damage: int = 20):
@@ -81,7 +94,8 @@ class EnergyBullet(Bullet):
     def check(self) -> None:
         if pygame.sprite.spritecollideany(self, indestructible_block_type):
             if self.lives:
-                self.image = pygame.transform.rotate(self.image, 90).convert_alpha()
+                self.image = pygame.transform.rotate(
+                    self.image, 90).convert_alpha()
 
                 self.angle -= 90
                 self.dx = math.cos(math.radians(self.angle)) * self.speed
@@ -95,8 +109,12 @@ class EnergyBullet(Bullet):
 class Player(pygame.sprite.Sprite):
     def __init__(self, x: int, y: int, camera, speed: float = 5.) -> None:
         super().__init__(all_sprites)
-        
-        self.image = load_image(os.path.join("GAME", "Cammando", "untitled.png"))
+
+        self.image = load_image(
+            os.path.join(
+                "GAME",
+                "Cammando",
+                "untitled.png"))
         self.camera = camera
 
         self.max_greade = self.grenade = 1
@@ -143,7 +161,8 @@ class Player(pygame.sprite.Sprite):
 
     def update(self, mouse_pos: tuple[int, int]) -> None:
         # Поворот персонажа в сторону мыши
-        rel_x, rel_y = mouse_pos[0] - self.rect.centerx, mouse_pos[1] - self.rect.centery
+        rel_x, rel_y = mouse_pos[0] - \
+            self.rect.centerx, mouse_pos[1] - self.rect.centery
         self.angle = (math.degrees(math.atan2(rel_y, rel_x)) + 360 + 90) % 360
         self.image_rotated = pygame.transform.rotate(self.image, -self.angle)
         self.rect = self.image_rotated.get_rect(center=self.rect.center)
@@ -152,13 +171,14 @@ class Player(pygame.sprite.Sprite):
         keys = pygame.key.get_pressed()
         original_rect = self.rect.copy()  # Сохраняем оригинальное положение
 
-        if (keys[pygame.K_LSHIFT] and self.sprint) or (self.sprint_value != self.max_sprint_value):
+        if (keys[pygame.K_LSHIFT] and self.sprint) or (
+                self.sprint_value != self.max_sprint_value):
             self.rect.x += math.sin(
                 math.radians(self.sprint_angle if self.sprint_angle is not None else self.angle)
-                ) * self.sprint_value
+            ) * self.sprint_value
             self.rect.y -= math.cos(
                 math.radians(self.sprint_angle if self.sprint_angle is not None else self.angle)
-                ) * self.sprint_value
+            ) * self.sprint_value
             self.sprint_value -= 10
 
             if self.sprint:
@@ -189,7 +209,7 @@ class Player(pygame.sprite.Sprite):
                 if self.hitbox.colliderect(sprite.rect):
                     self.rect = original_rect
         for sprite in impassable_block_type:
-        # and (doors_group if False else none_group):
+            # and (doors_group if False else none_group):
             if self.hitbox.colliderect(sprite.rect):
                 self.rect = original_rect
 
@@ -208,7 +228,13 @@ class Player(pygame.sprite.Sprite):
         if self.bullets_shooting and self.bullets_shooting_cooldown == 0:
             self.bullets_reload_cooldown = 500
             if self.bullets > 0:
-                Bullet(*get_gun_coord(self.rect.center, self.angle, self.hand), self.angle)
+                Bullet(
+                    *
+                    get_gun_coord(
+                        self.rect.center,
+                        self.angle,
+                        self.hand),
+                    self.angle)
                 self.bullets -= 1
                 music.shot_fx.play()
                 self.hand = not self.hand
@@ -231,7 +257,13 @@ class Player(pygame.sprite.Sprite):
         if self.e_bullets_shooting and self.e_bullets_shooting_cooldown == 0:
             self.e_bullets_reload_cooldown = 1000
             if self.energy_bullets > 0:
-                EnergyBullet(*get_gun_coord(self.rect.center, self.angle, self.hand), self.angle)
+                EnergyBullet(
+                    *
+                    get_gun_coord(
+                        self.rect.center,
+                        self.angle,
+                        self.hand),
+                    self.angle)
                 self.energy_bullets -= 1
                 music.e_shot_fx.play()
                 self.hand = not self.hand
@@ -253,8 +285,8 @@ class Player(pygame.sprite.Sprite):
             self.e_bullets_shooting = False
 
     def get_distance(self, object: pygame.sprite.Sprite) -> float:
-        return math.sqrt(
-            (self.rect.centerx - object.rect.centerx) ** 2 + (self.rect.centery - object.rect.centery) ** 2)
+        return math.sqrt((self.rect.centerx - object.rect.centerx)
+                         ** 2 + (self.rect.centery - object.rect.centery) ** 2)
 
     def draw(self, screen: pygame.Surface) -> None:
         screen.blit(self.image_rotated, self.rect.topleft)
@@ -281,7 +313,7 @@ class DamageView(pygame.sprite.Sprite):
         self.rect = self.text.get_rect(center=(x, y))
 
         self.focus = 150
-    
+
     def update(self) -> None:
         self.text.set_alpha(self.focus)
         self.rect.y -= 1
@@ -289,7 +321,7 @@ class DamageView(pygame.sprite.Sprite):
         self.focus -= 1
         if self.focus == 0:
             self.kill()
-    
+
     def draw(self, screen: pygame.Surface) -> None:
         screen.blit(self.text, self.rect)
 
@@ -303,8 +335,10 @@ class Camera:
 
     def update(self, target):
         if self.shake_time > 0:
-            self.dx += random.uniform(-self.shake_intensity, self.shake_intensity)
-            self.dy += random.uniform(-self.shake_intensity, self.shake_intensity)
+            self.dx += random.uniform(-self.shake_intensity,
+                                      self.shake_intensity)
+            self.dy += random.uniform(-self.shake_intensity,
+                                      self.shake_intensity)
             self.shake_time -= 1
 
         dx = -(target.rect.x + target.rect.w // 2 - WIDTH // 2) * .12
@@ -330,22 +364,42 @@ class Interface:
     hp_bar_background_none = Color(34, 56, 19)
     hp_bar_text_color = Color(242, 249, 216)
 
-    m1_skill = load_image(os.path.join("GAME", "gui", "skills", "m1.png")).convert_alpha()
+    m1_skill = load_image(
+        os.path.join(
+            "GAME",
+            "gui",
+            "skills",
+            "m1.png")).convert_alpha()
     off_m1_skill = m1_skill.copy()
     off_m1_skill.set_alpha(50)
     off_m1_skill.convert_alpha()
     #
-    m2_skill = load_image(os.path.join("GAME", "gui", "skills", "m2.png")).convert_alpha()
+    m2_skill = load_image(
+        os.path.join(
+            "GAME",
+            "gui",
+            "skills",
+            "m2.png")).convert_alpha()
     off_m2_skill = m2_skill.copy()
     off_m2_skill.set_alpha(50)
     off_m2_skill.convert_alpha()
     #
-    shift_skill = load_image(os.path.join("GAME", "gui", "skills", "shift.png")).convert_alpha()
+    shift_skill = load_image(
+        os.path.join(
+            "GAME",
+            "gui",
+            "skills",
+            "shift.png")).convert_alpha()
     off_shift_skill = shift_skill.copy()
     off_shift_skill.set_alpha(50)
     off_shift_skill.convert_alpha()
     #
-    r_skill = load_image(os.path.join("GAME", "gui", "skills", "r.png")).convert_alpha()
+    r_skill = load_image(
+        os.path.join(
+            "GAME",
+            "gui",
+            "skills",
+            "r.png")).convert_alpha()
     off_r_skill = r_skill.copy()
     off_r_skill.set_alpha(50)
     off_r_skill.convert_alpha()
@@ -356,17 +410,42 @@ class Interface:
     def draw(self, screen: pygame.surface.Surface, player: Player) -> None:
         # border
         pygame.draw.rect(screen, BACKGROUND_COLOR, (0, 0, WIDTH, 85))
-        pygame.draw.rect(screen, BACKGROUND_COLOR, (0, HEIGHT - 100, WIDTH, 100))
+        pygame.draw.rect(screen, BACKGROUND_COLOR,
+                         (0, HEIGHT - 100, WIDTH, 100))
 
-        self.draw_graph(screen, self.hp_bar_background_none, self.hp_bar_background, self.hp_bar_text_color,
-                        50, HEIGHT - 65, 254, 30, player.hp / player.max_hp, f"{player.hp} / {player.max_hp}")
+        self.draw_graph(
+            screen,
+            self.hp_bar_background_none,
+            self.hp_bar_background,
+            self.hp_bar_text_color,
+            50,
+            HEIGHT - 65,
+            254,
+            30,
+            player.hp / player.max_hp,
+            f"{player.hp} / {player.max_hp}")
 
         items = (
-            (player.bullets, player.max_bullets, 'M1', self.m1_skill, self.off_m1_skill),
-            (player.energy_bullets, player.max_energy_bullets, 'M2', self.m2_skill, self.off_m2_skill),
-            (player.sprint, player.max_sprint, 'SHIFT', self.shift_skill, self.off_shift_skill),
-            (player.grenade, player.max_greade, 'R', self.r_skill, self.off_r_skill)
-        )
+            (player.bullets,
+             player.max_bullets,
+             'M1',
+             self.m1_skill,
+             self.off_m1_skill),
+            (player.energy_bullets,
+             player.max_energy_bullets,
+             'M2',
+             self.m2_skill,
+             self.off_m2_skill),
+            (player.sprint,
+             player.max_sprint,
+             'SHIFT',
+             self.shift_skill,
+             self.off_shift_skill),
+            (player.grenade,
+             player.max_greade,
+             'R',
+             self.r_skill,
+             self.off_r_skill))
 
         self.draw_skills(screen, WIDTH - 100, HEIGHT - 90, items)
 
@@ -378,27 +457,48 @@ class Interface:
         text = font.render(f'${player.money}', True, '#FFFF00')
         screen.blit(text, (10, 10))
 
-    def draw_graph(self, screen: pygame.Surface,
-                   background_color: Color, graph_color: Color, text_color: Color,
-                   x: int, y: int, width: int, height: int,
-                   value: float, text: str = "") -> None:
+    def draw_graph(
+            self,
+            screen: pygame.Surface,
+            background_color: Color,
+            graph_color: Color,
+            text_color: Color,
+            x: int,
+            y: int,
+            width: int,
+            height: int,
+            value: float,
+            text: str = "") -> None:
         pygame.draw.rect(screen, background_color, (x, y, width, height))
-        pygame.draw.rect(screen, graph_color, (x, y, int(width * value), height))
+        pygame.draw.rect(
+            screen, graph_color, (x, y, int(
+                width * value), height))
 
         font = pygame.font.SysFont(None, int(min(width, height) * 1.3))
         text = font.render(text, True, text_color)
         place = text.get_rect(center=(x + width // 2, y + height // 2))
         screen.blit(text, place)
 
-    def draw_skills(self, screen: pygame.Surface, right_x: int, right_y: int,
-                    items: tuple[tuple[int, int, str, pygame.Surface]]) -> None:
-        for i, (current, _max, title, image, off_image) in enumerate(items[::-1]):
+    def draw_skills(self,
+                    screen: pygame.Surface,
+                    right_x: int,
+                    right_y: int,
+                    items: tuple[tuple[int,
+                                       int,
+                                       str,
+                                       pygame.Surface]]) -> None:
+        for i, (current, _max, title, image,
+                off_image) in enumerate(items[::-1]):
             fill = int(64 * (1 - current / _max))
             if fill > 0:
                 screen.blit(off_image, (right_x - 64 * i, right_y))
             rect = pygame.Rect(0, fill, 64, 64 - fill)
-            screen.blit(image.subsurface(rect), (right_x - 64 * i, right_y + fill))
-            place = pygame.draw.rect(screen, '#FFFFFF', (right_x - 64 * i, right_y + 68, 64, 20))
+            screen.blit(
+                image.subsurface(rect),
+                (right_x - 64 * i,
+                 right_y + fill))
+            place = pygame.draw.rect(
+                screen, '#FFFFFF', (right_x - 64 * i, right_y + 68, 64, 20))
 
             font = pygame.font.SysFont(None, 25)
             text = font.render(title, True, '#000000')
@@ -407,7 +507,8 @@ class Interface:
     def draw_inv(self, screen: pygame.Surface, x: int, y: int,
                  items: tuple[tuple[items.Item, int]]) -> None:
         for i, data in enumerate(items):
-            place = pygame.draw.rect(screen, "#404974", (x + i * 60, y, 60, 60))
+            place = pygame.draw.rect(
+                screen, "#404974", (x + i * 60, y, 60, 60))
 
             if not data:
                 continue
@@ -416,7 +517,12 @@ class Interface:
             screen.blit(item.image_item, place.topleft)
             font = pygame.font.SysFont(None, 30)
             text = font.render(f"x{count}", True, "#FFFFFF")
-            screen.blit(text, (place.bottomright[0] - text.get_size()[0], place.bottomright[1] - text.get_size()[1]))
+            screen.blit(
+                text,
+                (place.bottomright[0] -
+                 text.get_size()[0],
+                 place.bottomright[1] -
+                 text.get_size()[1]))
 
 
 class Chest(pygame.sprite.Sprite):
@@ -427,14 +533,31 @@ class Chest(pygame.sprite.Sprite):
     )
 
     def __init__(self, x: int, y: int, price: int = 25) -> None:
-        self.image = load_image(os.path.join("GAME", "chests", "normal", "chest.png")).convert_alpha()
-        self.image_opened = load_image(os.path.join("GAME", "chests", "normal", "chest_.png")).convert_alpha()
+        self.image = load_image(
+            os.path.join(
+                "GAME",
+                "chests",
+                "normal",
+                "chest.png")).convert_alpha()
+        self.image_opened = load_image(
+            os.path.join(
+                "GAME",
+                "chests",
+                "normal",
+                "chest_.png")).convert_alpha()
 
-        self.animation_frames = [load_image(os.path.join("GAME", "chests", "normal", f"chest{i}.png")).convert_alpha()
-                                 for i in range(1, 6)]
-        
+        self.animation_frames = [
+            load_image(
+                os.path.join(
+                    "GAME",
+                    "chests",
+                    "normal",
+                    f"chest{i}.png")).convert_alpha() for i in range(
+                1,
+                6)]
+
         super().__init__(all_sprites)
-    
+
         self.rect = self.image.get_rect(center=(x, y))
         self.price = price
         self.is_opened = False
@@ -446,11 +569,13 @@ class Chest(pygame.sprite.Sprite):
             screen.blit(self.image_opened, self.rect.topleft)
         else:
             screen.blit(self.image, self.rect.topleft)
-            if player.get_distance(self) < 150:  # Отображаем цену только если игрок рядом
+            if player.get_distance(
+                    self) < 150:  # Отображаем цену только если игрок рядом
                 screen.blit(self.image_opened, self.rect.topleft)
                 font = pygame.font.SysFont(None, 36)
                 price_text = font.render(f"${self.price}", True, (255, 255, 0))
-                screen.blit(price_text, (self.rect.x + 70, self.rect.y + 40))  # Изменено положение текста
+                # Изменено положение текста
+                screen.blit(price_text, (self.rect.x + 70, self.rect.y + 40))
 
     def update(self, player: Player) -> None:
         if not self.is_opened and player.hitbox.colliderect(self.rect):
@@ -460,8 +585,8 @@ class Chest(pygame.sprite.Sprite):
                     self.is_opened = True
                     self.current_frame += 1
 
-                    random_item = items.get_random(random.choices(tuple(map(lambda a: a[0], self.chance_item)),
-                                                                  tuple(map(lambda b: b[1], self.chance_item)))[0])
+                    random_item = items.get_random(random.choices(tuple(map(
+                        lambda a: a[0], self.chance_item)), tuple(map(lambda b: b[1], self.chance_item)))[0])
 
                     player.add_item(random_item)
 
@@ -480,16 +605,34 @@ class CorruptedChest(Chest):
     )
 
     def __init__(self, x: int, y: int, price: int = 75) -> None:
-        self.image = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest.png")).convert_alpha()
-        self.image_opened = load_image(os.path.join("GAME", "chests", "corrupted chest", "chest_.png")).convert_alpha()
+        self.image = load_image(
+            os.path.join(
+                "GAME",
+                "chests",
+                "corrupted chest",
+                "chest.png")).convert_alpha()
+        self.image_opened = load_image(
+            os.path.join(
+                "GAME",
+                "chests",
+                "corrupted chest",
+                "chest_.png")).convert_alpha()
 
-        self.animation_frames = [load_image(os.path.join("GAME", "chests", "corrupted chest", f"chest{i}.png")).convert_alpha()
-                                 for i in range(1, 6)]
-    
+        self.animation_frames = [
+            load_image(
+                os.path.join(
+                    "GAME",
+                    "chests",
+                    "corrupted chest",
+                    f"chest{i}.png")).convert_alpha() for i in range(
+                1,
+                6)]
+
         super().__init__(x, y, price)
 
 
-def get_gun_coord(coords: tuple[int, int], angle: float, hand: bool) -> tuple[int, int]:
+def get_gun_coord(coords: tuple[int, int],
+                  angle: float, hand: bool) -> tuple[int, int]:
     """ определение координат оружий относительно игрока """
 
     f = 60.72890558  # длинна гипотенузы
@@ -502,8 +645,8 @@ def get_gun_coord(coords: tuple[int, int], angle: float, hand: bool) -> tuple[in
     return x, y
 
 
-def main_game(dr: int = 0, dg: int = 0, db: int = 0,
-              player_items = {}, player_money: int = 50,
+def main_game(dr: int = 0, dg: int = 0, db: int = 0, level=1,
+              player_items={}, player_money: int = 50,
               player_hp: int = 100, player_max_hp: int = 100,
               player_all_money: int = 50, player_all_damage: int = 0) -> None:
     convert_path_to_img((dr, dg, db))
@@ -519,6 +662,7 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0,
 
     def next_level(*_) -> None:
         global portal, player, camera, interface
+
         for sprite in all_sprites:
             sprite.kill()
         for sprite in doors:
@@ -526,7 +670,7 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0,
         for sprite in chests:
             sprite.kill()
 
-        data = (player.items, player.money, player.hp, player.max_hp,
+        data = (level + 1, player.items, player.money, player.hp, player.max_hp,
                 player.all_money, player.all_damage)
 
         portal = None
@@ -575,21 +719,25 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0,
                     chests.append(Chest(coords[0] + 60, coords[1] + 40))
                 if col == 'C':
                     blocks.Grass(*coords)
-                    chests.append(CorruptedChest(coords[0] + 60, coords[1] + 40))
-                
+                    chests.append(
+                        CorruptedChest(
+                            coords[0] + 60,
+                            coords[1] + 40))
+
                 if col == 'Q':
                     monsters.Quen(*coords)
-                
+
                 if col == 'D':
                     blocks.Grass(*coords)
                     doors.append(blocks.Door(*coords))
                 if col == 'd':
                     blocks.Grass(*coords)
                     doors.append(blocks.Door(*coords, True))
-                
+
                 if col == 'p':
                     blocks.Grass(*coords)
-                    portal = blocks.Portal(coords[0] + 40, coords[1] + 40, spawn_boss)
+                    portal = blocks.Portal(
+                        coords[0] + 40, coords[1] + 40, spawn_boss)
 
     def draw_hallway(x: int, y: int, rotate: bool = False) -> None:
         surface = ['#...#',
@@ -597,22 +745,29 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0,
                    '#...#',
                    '#...#',
                    '#...#']
-        
+
         if rotate:
             surface = [''.join(a) for a in zip(*surface)]
-        
+
         draw_any(surface, x, y)
 
-    def draw_map(room: game_map.Room, x_room = 0, y_room = 0):
+    def draw_map(room: game_map.Room, x_room=0, y_room=0):
         global boss_room
 
         draw_any(room.surface, x_room * 18 * 80, y_room * 18 * 80)
 
         pos = []
         if room.type == game_map.NORMAL_ROOM:
-            pos.append(room.get_random_pos(3))
+            pos.append(room.get_random_pos(min(15, random.randint(3, 5 + level))))
             pos.append(room.get_random_pos(1))
-        f = game_map.RoomData(room.type, x_room * 18 * 80 + 160, y_room * 18 * 80 + 160, x_room, y_room, *pos)
+        f = game_map.RoomData(
+            room.type,
+            x_room * 18 * 80 + 160,
+            y_room * 18 * 80 + 160,
+            x_room,
+            y_room,
+            *pos)
+            
         if room.type == game_map.BOSS_ROOM:
             boss_room = f
 
@@ -638,7 +793,7 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0,
                     draw_hallway(x_h + 80 * 4, y_h + 80 * 13)
                 elif i == 3:
                     draw_hallway(x_h + 80 * 13, y_h + 80 * 4, True)
-    
+
     draw_map(game_map.make_map(2))
 
     running = True
@@ -710,19 +865,36 @@ def main_game(dr: int = 0, dg: int = 0, db: int = 0,
 
                         player.push(50)
                         for x, y in obj.monsters_pos:
-                            monsters.SpawnMonster(obj.rect.topleft[0] + x * 80 - 40,
-                                                  obj.rect.topleft[1] + y * 80 - 40,
-
-                                                  monsters.Lem, (obj, ))
+                            monsters.SpawnMonster(
+                                obj.rect.topleft[0] +
+                                x *
+                                80 -
+                                40,
+                                obj.rect.topleft[1] +
+                                y *
+                                80 -
+                                40,
+                                monsters.Lem,
+                                (obj,
+                                 ))
                     if obj.monsters_count == 0:
                         player.doors = False
                         opened_rooms.add((obj.x, obj.y))
                         for x, y in obj.chests_pos:
-                            chests.append(Chest(obj.rect.topleft[0] + x * 80 + 60, obj.rect.topleft[1] + y * 80  + 40))
+                            chests.append(
+                                Chest(
+                                    obj.rect.topleft[0] +
+                                    x *
+                                    80 +
+                                    60,
+                                    obj.rect.topleft[1] +
+                                    y *
+                                    80 +
+                                    40))
             else:
                 if obj.monsters_count == -1:
                     portal.reset(next_level)
-        
+
         if player.hp <= 0:
             add_death(player.all_money, player.all_damage)
             main_death(

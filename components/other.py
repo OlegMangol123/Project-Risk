@@ -5,7 +5,8 @@ import pygame
 BACKGROUND_COLOR = pygame.Color(0, 0, 0)
 
 
-def load_image(path, gamma: tuple[int, int, int] = [0, 0, 0]) -> pygame.Surface | None:
+def load_image(path, gamma: tuple[int, int, int] = [
+               0, 0, 0]) -> pygame.Surface | None:
     try:
         return inc_clrs(pygame.image.load(path), *gamma)
     except FileNotFoundError:
@@ -16,7 +17,7 @@ def load_image(path, gamma: tuple[int, int, int] = [0, 0, 0]) -> pygame.Surface 
 def inc_clrs(image: pygame.Surface, dr: int, dg: int, db: int):
     if dr == dg == db == 0:
         return image
-    
+
     width, height = image.get_size()
 
     for x in range(width):
