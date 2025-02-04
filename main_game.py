@@ -1,11 +1,3 @@
-from components.database import add_death
-from components.groups import *
-from components import music
-from components import monsters
-from components import game_map
-from components import items
-from components import blocks
-from death import main_death
 import os
 import math
 import random
@@ -20,6 +12,14 @@ pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
+from components.database import add_death
+from components.groups import *
+from components import music
+from components import monsters
+from components import game_map
+from components import items
+from components import blocks
+from death import main_death
 #
 
 
